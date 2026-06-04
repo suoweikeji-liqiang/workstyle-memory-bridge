@@ -17,7 +17,7 @@ from .context_builder import ContextCriteria, build_context_markdown, select_mem
 from .deletion_verifier import verify_deleted_memory
 from .exporters import export_instruction_file
 from .extractor import existing_memory_digest, extract_from_feedback
-from .resolver import apply_drafts
+from .resolver import apply_drafts, preview_drafts
 from .schemas import CreatedFrom, Scope
 from .store import MemoryStore
 
@@ -105,11 +105,16 @@ def create_server():
         product: Optional[str] = None,
         domain: Optional[str] = None,
         user_id: Optional[str] = None,
+        dry_run: bool = False,
     ) -> str:
         """Convert explicit user feedback into governed workstyle memory.
 
         `memory_json` may contain structured extractor output. If absent, the
         configured model-backed extractor is used. No heuristic fallback exists.
+
+        Set `dry_run=True` for a propose-then-confirm flow: it returns the
+        proposed memories and which active memory each would supersede, without
+        writing anything. Call again with `dry_run=False` once the user confirms.
         """
         payload = json.loads(memory_json) if memory_json else None
         context = _task_context(
@@ -129,6 +134,22 @@ def create_server():
             memory_json=payload,
             existing_memories=existing,
         )
+        if dry_run:
+            preview = preview_drafts(store, drafts)
+            return json.dumps(
+                {
+                    "dry_run": True,
+                    "previews": [
+                        {
+                            "proposed": item.draft.to_dict(),
+                            "would_supersede": [old.to_dict() for old in item.would_supersede],
+                        }
+                        for item in preview.previews
+                    ],
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
         evidence = store.create_evidence("user_feedback", feedback, metadata=context)
         ref = store.evidence_ref_for(evidence)
         for draft in drafts:

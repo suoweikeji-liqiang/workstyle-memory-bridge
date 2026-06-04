@@ -24,6 +24,39 @@ class MutationResult:
         return bool(self.inserted or self.superseded or self.deleted)
 
 
+@dataclass
+class DraftPreview:
+    """What applying one draft would do, computed without writing."""
+
+    draft: MemoryDraft
+    would_supersede: List[MemoryRecord] = field(default_factory=list)
+
+
+@dataclass
+class PreviewResult:
+    previews: List[DraftPreview] = field(default_factory=list)
+
+    def total_supersede(self) -> int:
+        return sum(len(item.would_supersede) for item in self.previews)
+
+
+def preview_drafts(store: MemoryStore, drafts: List[MemoryDraft]) -> PreviewResult:
+    """Non-mutating preview of apply_drafts.
+
+    Used for propose-then-confirm flows: the host AI shows the user what would
+    be remembered and which active memory it would supersede, before any write.
+
+    Each draft is previewed against the CURRENT store state, not against earlier
+    drafts in the same batch; propose one draft at a time for an exact preview.
+    """
+    result = PreviewResult()
+    for draft in drafts:
+        draft.validate()
+        conflicts = store.find_active_by_slot_scope(draft.slot, draft.scope.key())
+        result.previews.append(DraftPreview(draft=draft, would_supersede=conflicts))
+    return result
+
+
 def apply_draft(store: MemoryStore, draft: MemoryDraft, actor: str = "user") -> MutationResult:
     """Insert a draft and supersede any active memory with same slot+scope.
 

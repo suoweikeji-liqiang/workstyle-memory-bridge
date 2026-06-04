@@ -18,7 +18,7 @@ from .extractor import (
     extract_from_feedback,
     load_json_argument,
 )
-from .resolver import apply_drafts
+from .resolver import PreviewResult, apply_drafts, preview_drafts
 from .schemas import CreatedFrom, Scope, ValidationError
 from .store import MemoryStore
 
@@ -85,6 +85,26 @@ def cmd_view(args: argparse.Namespace) -> int:
     return 0
 
 
+def _print_preview(preview: PreviewResult) -> None:
+    print("DRY RUN — nothing written.\n")
+    for index, item in enumerate(preview.previews, start=1):
+        draft = item.draft
+        print(f"Proposed memory {index}:")
+        print(f"  type: {draft.type}")
+        print(f"  scope: {draft.scope.key()}")
+        print(f"  slot: {draft.slot}")
+        print(f"  content: {draft.content}")
+        print(f"  rationale: {draft.rationale}")
+        print(f"  confidence: {draft.confidence:.2f}")
+        if item.would_supersede:
+            print("  would supersede:")
+            for old in item.would_supersede:
+                print(f"    - {old.id}: {old.content}")
+        else:
+            print("  would supersede: (none — new slot)")
+        print()
+
+
 def cmd_ingest_feedback(args: argparse.Namespace) -> int:
     store = _store(args)
     memory_json: Optional[Dict[str, Any]] = None
@@ -106,6 +126,10 @@ def cmd_ingest_feedback(args: argparse.Namespace) -> int:
         print("\n--- Extraction prompt to send to a model ---\n", file=sys.stderr)
         print(exc.prompt, file=sys.stderr)
         return 2
+
+    if args.dry_run:
+        _print_preview(preview_drafts(store, drafts))
+        return 0
 
     evidence = store.create_evidence(
         kind="user_feedback",
@@ -293,6 +317,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--feedback", required=True)
     p.add_argument("--memory-json", help="Structured JSON string, or @path to JSON file")
     p.add_argument("--llm-command", help="External command that reads prompt from stdin and returns JSON")
+    p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Preview proposed memories and what they would supersede, without writing",
+    )
     add_scope_args(p)
     p.set_defaults(func=cmd_ingest_feedback)
 

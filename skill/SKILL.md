@@ -14,7 +14,7 @@ One feedback event should improve future collaboration across tools while remain
 
 - `reset_memory`: clear all memories and evidence events for reproducible testing.
 - `view_memory`: show current memory state.
-- `remember_feedback`: convert feedback into structured memories and attach L0 evidence refs.
+- `remember_feedback`: convert feedback into structured memories and attach L0 evidence refs. Supports `dry_run` for propose-then-confirm.
 - `inspect_memory`: inspect a memory card, source evidence, and lifecycle.
 - `build_context`: return relevant active memories for a task.
 - `edit_memory`: update a memory.
@@ -52,6 +52,28 @@ Fallbacks (not the everyday path): the user/tooling may supply explicit
 `memory_json` directly, or set `MEMORY_BRIDGE_LLM_COMMAND` for an external model.
 If neither is configured and no host AI acts, the CLI prints the extraction
 prompt for manual paste — it never guesses.
+
+## When to capture, and propose-then-confirm
+
+Two capture triggers, both driven by you (the host AI), never by core code:
+
+1. **Explicit** — the user says "记住这个" / "remember this". Extract and apply.
+2. **Proactive** — you judge that feedback looks like a durable, reusable
+   workstyle preference. Do **not** silently write it. Propose a memory card and
+   let the user confirm with one reply.
+
+For the proactive case, use the dry-run preview so the proposal is honest about
+its effect instead of guessed:
+
+- `remember_feedback(..., dry_run=True)` (MCP) / `ingest-feedback --dry-run` (CLI)
+  returns the proposed memory and **which active memory it would supersede**,
+  writing nothing.
+- Show that to the user ("记成一条 X，会替换现有的 Y，要吗？"). On confirmation,
+  call again with `dry_run=False` to commit.
+
+Every write stays reversible via `delete_memory` + `verify_deletion`, so a wrong
+capture is cheap to undo. Prefer one proposed memory at a time: dry-run previews
+each draft against the current store, not against other drafts in the same batch.
 
 ## Memory types
 
