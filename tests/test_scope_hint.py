@@ -7,6 +7,9 @@ caller (or host AI) can realign to the exact value. Matching itself stays exact 
 no normalization, no fuzzy matching.
 """
 
+import json
+
+from memory_bridge.cli import main
 from memory_bridge.context_builder import (
     ContextCriteria,
     available_scope_values,
@@ -62,3 +65,37 @@ def test_mismatched_scope_value_misses_but_hint_surfaces_stored_value(tmp_path):
 def test_empty_without_available_is_backward_compatible(tmp_path):
     rendered = build_context_markdown([])
     assert rendered == "No active workstyle memories matched this context."
+
+
+def _memory_json(task_type: str, content: str) -> str:
+    return json.dumps(
+        {
+            "memories": [
+                {
+                    "type": "workflow",
+                    "scope": {"level": "task_type", "task_type": task_type},
+                    "slot": "bugfix_comm",
+                    "content": content,
+                    "rationale": "r",
+                    "confidence": 0.9,
+                }
+            ]
+        }
+    )
+
+
+def test_dry_run_write_path_surfaces_existing_scope_values(tmp_path, capsys):
+    """Write-path prevention: a dry-run proposal whose scope drifts ('bugfix')
+    must show the existing stored value ('bug-fix') so the caller realigns
+    before committing a duplicate."""
+    db = str(tmp_path / "cli.sqlite")
+    assert main(["--db", db, "ingest-feedback", "--task-type", "bug-fix",
+                 "--feedback", "f", "--memory-json", _memory_json("bug-fix", "v1")]) == 0
+    capsys.readouterr()  # drop commit output
+
+    rc = main(["--db", db, "ingest-feedback", "--task-type", "bugfix",
+               "--feedback", "f2", "--memory-json", _memory_json("bugfix", "v2"), "--dry-run"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "Existing scope values" in out
+    assert "bug-fix" in out  # the stored value is surfaced for realignment

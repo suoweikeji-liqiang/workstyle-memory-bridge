@@ -194,6 +194,14 @@ def create_server():
                         }
                         for item in preview.previews
                     ],
+                    "existing_scope_values": available_scope_values(store),
+                    "hint": (
+                        "Before confirming, compare each proposed scope value with "
+                        "existing_scope_values. If a proposal is a variant of an existing "
+                        "value (e.g. 'bugfix' vs the stored 'bug-fix'), re-call with the "
+                        "exact existing value so future reads match and the old memory is "
+                        "superseded instead of duplicated."
+                    ),
                 },
                 ensure_ascii=False,
                 indent=2,

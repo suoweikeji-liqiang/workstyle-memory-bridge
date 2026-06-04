@@ -135,6 +135,11 @@ def cmd_ingest_feedback(args: argparse.Namespace) -> int:
 
     if args.dry_run:
         _print_preview(preview_drafts(store, drafts))
+        available = available_scope_values(store)
+        if available:
+            print("Existing scope values in use (reuse the exact value if a proposal is a variant):")
+            for dim, found in available.items():
+                print(f"  {dim}: {', '.join(found)}")
         return 0
 
     evidence = store.create_evidence(
