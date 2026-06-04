@@ -8,6 +8,24 @@ Workstyle Memory Bridge 是一个轻量级 **Workstyle Memory Governance MCP / C
 
 > **AI 如何记住你希望它怎样协作，并在后续任务里可验证地减少重复说明。**
 
+## 30 秒看懂 / In 30 seconds
+
+**不是又一个记忆 MCP。** 它是关于「**你想要 AI 怎么和你协作**」的治理层。每条偏好都是一条有类型的记录,它：
+
+- **替换而非堆叠** —— 同 `slot + scope` 的新记忆会 supersede 旧的,不会越记越乱;
+- **可溯源** —— 每条记忆都能下钻到产生它的那次反馈事件(L0 evidence);
+- **删除可被证明** —— `verify-deletion` 跨上下文与 Claude/Codex 投影确认它真的停用了;
+- **内核从不猜测** —— 语义只来自模型或你的显式 JSON,**刻意零关键字/正则规则**;
+- **一处反馈、处处生效** —— 一个共享库,Claude、Codex、Antigravity 一起变懂你。
+
+> Not another memory MCP. It is a **governance layer for how you want AI to work with you** — every preference is a typed record that **supersedes instead of piling up**, **traces back to the feedback that created it**, and can be **deleted with proof**. The core never guesses: all meaning comes from the model or your explicit input — **zero keyword rules, by design**. One shared store, and Claude, Codex, and Antigravity all adapt.
+
+**🎬 视频开场白（抖音 / B站 / YouTube）**
+
+> 「大多数 AI,每次见你都像第一次。
+> 这个不一样——你教它一次,它就记住了你**怎么干活**。
+> 而且它记的每一条,你都能看见、能改、能删——还能**亲眼验证**删掉后它真的不再用了。」
+
 ## 北极星
 
 让 AI 把用户在真实工作中的反馈，自动沉淀成结构化、可治理、可迁移、可溯源的工作方式记忆；同一条反馈可以在 Claude、Codex、MCP 工具和产品助手中生效；用户可以随时查看、编辑、删除，并能追溯每条记忆来自哪次反馈；删除后记忆必须停止生效。
