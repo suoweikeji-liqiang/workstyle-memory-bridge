@@ -34,6 +34,17 @@ OUT1="$($MB ingest-feedback \
 printf '%s\n' "$OUT1"
 FIRST_ID="$(printf '%s\n' "$OUT1" | awk '/^- mem_/ {gsub(":", "", $2); print $2; exit}')"
 
+printf '\n[3b] (path B) extraction prompt now carries the existing memory\n'
+echo 'When NO --memory-json is given, the model-backed path is used. The prompt'
+echo 'now includes current active memories so the model reuses the same slot+scope'
+echo 'on updates (instead of creating a conflicting one). No extractor is configured'
+echo 'here, so the CLI prints the model-ready prompt and writes nothing:'
+printf '\n'
+$MB ingest-feedback \
+  --task-type technical_planning \
+  --feedback '风险其实可以放后面一点' 2>&1 \
+  | awk '/Currently stored active memories/{f=1} /^Task context:/{f=0} f' || true
+
 printf '\n[4] view and inspect memory\n'
 $MB view
 if [ -n "$FIRST_ID" ]; then
@@ -44,11 +55,9 @@ printf '\n[5] second task should use memory\n'
 echo 'Task: 帮我评估 Memory Bridge 要不要接入 Claude 和 Codex。'
 $MB build-context --task-type technical_planning
 
-printf '\n[6] preference changes -> supersede old memory\n'
-OUT2="$($MB ingest-feedback \
-  --task-type technical_planning \
-  --feedback '调整一下：产品方案仍然要简洁，但代码实现类任务可以详细。风险不要第一段，放在 MVP 后面。' \
-  --memory-json '{
+printf '\n[6] preference changes -> propose-then-confirm, then supersede\n'
+UPDATE_FEEDBACK='调整一下：产品方案仍然要简洁，但代码实现类任务可以详细。风险不要第一段，放在 MVP 后面。'
+UPDATE_JSON='{
     "memories": [{
       "type": "workflow",
       "layer": "L1_atom",
@@ -58,7 +67,15 @@ OUT2="$($MB ingest-feedback \
       "rationale": "用户调整了风险位置和代码实现类任务的详细程度。",
       "confidence": 0.94
     }]
-  }')"
+}'
+
+printf '\n[6a] (path C) dry-run preview: what would be remembered and superseded\n'
+$MB ingest-feedback --task-type technical_planning \
+  --feedback "$UPDATE_FEEDBACK" --memory-json "$UPDATE_JSON" --dry-run
+
+printf '\n[6b] user confirms -> commit (old memory is superseded)\n'
+OUT2="$($MB ingest-feedback --task-type technical_planning \
+  --feedback "$UPDATE_FEEDBACK" --memory-json "$UPDATE_JSON")"
 printf '%s\n' "$OUT2"
 ACTIVE_ID="$(printf '%s\n' "$OUT2" | awk '/^- mem_/ {gsub(":", "", $2); print $2; exit}')"
 
