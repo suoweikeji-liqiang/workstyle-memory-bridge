@@ -23,6 +23,36 @@ One feedback event should improve future collaboration across tools while remain
 - `export_instructions`: write active memories into Claude/Codex instruction files.
 - `export_diagnostic`: CLI-only local diagnostic bundle for review and reproduction.
 
+## How extraction happens (the host AI is the extractor)
+
+This skill has no built-in semantic extractor and never uses keyword rules. The
+primary, low-friction path is: **the AI assistant already in the loop (Claude
+Code, Codex, or an MCP client) does the extraction itself.**
+
+When the user expresses how they want you to collaborate (a preference, a
+workflow, a project rule, a correction), you should:
+
+1. Decide — using your own judgement, not string rules — whether it is a stable,
+   reusable workstyle memory or just a one-off task detail. If unsure, ask or
+   propose a memory card for one-tap confirmation rather than guessing.
+2. Produce a `memory_json` payload conforming to the schema below.
+3. Call `remember_feedback` (MCP) / `ingest-feedback --memory-json` (CLI) with it.
+   Do **not** ask the user to hand-write JSON, and do not require an external
+   `MEMORY_BRIDGE_LLM_COMMAND` for everyday use — that command exists only for
+   headless/batch runs.
+
+To keep memory governed instead of accumulating, before emitting a draft inspect
+the current memories (`view_memory` / `build_context`). If the new feedback
+updates, narrows, or overrides an existing memory, **reuse that memory's exact
+`slot` and `scope`** so the resolver supersedes the old version. The CLI/MCP also
+inject the current active memories into the extraction prompt to make this
+reuse reliable. Only choose a new slot for a genuinely new topic.
+
+Fallbacks (not the everyday path): the user/tooling may supply explicit
+`memory_json` directly, or set `MEMORY_BRIDGE_LLM_COMMAND` for an external model.
+If neither is configured and no host AI acts, the CLI prints the extraction
+prompt for manual paste — it never guesses.
+
 ## Memory types
 
 - `preference`: stable user preference.

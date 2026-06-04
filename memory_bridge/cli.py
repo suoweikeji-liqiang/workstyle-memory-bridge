@@ -12,7 +12,12 @@ from .deletion_verifier import verify_deleted_memory
 from .diagnostics import export_diagnostic_bundle
 from .doctor import run_doctor
 from .exporters import export_instruction_file
-from .extractor import ExtractorUnavailable, extract_from_feedback, load_json_argument
+from .extractor import (
+    ExtractorUnavailable,
+    existing_memory_digest,
+    extract_from_feedback,
+    load_json_argument,
+)
 from .resolver import apply_drafts
 from .schemas import CreatedFrom, Scope, ValidationError
 from .store import MemoryStore
@@ -83,14 +88,18 @@ def cmd_view(args: argparse.Namespace) -> int:
 def cmd_ingest_feedback(args: argparse.Namespace) -> int:
     store = _store(args)
     memory_json: Optional[Dict[str, Any]] = None
+    existing: Optional[List[Dict[str, Any]]] = None
     if args.memory_json:
         memory_json = load_json_argument(args.memory_json)
+    else:
+        existing = existing_memory_digest(store.list(status="active"))
     try:
         drafts = extract_from_feedback(
             args.feedback,
             task_context=_task_context(args),
             memory_json=memory_json,
             llm_command=args.llm_command,
+            existing_memories=existing,
         )
     except ExtractorUnavailable as exc:
         print(str(exc), file=sys.stderr)

@@ -149,14 +149,18 @@ memory-bridge export codex --path ./AGENTS.md --task-type technical_planning
 
 ## 语义抽取方式
 
-当前初始包提供两种路径：
+**首选路径（自用主路径）：让正在对话的 AI 自己抽取。** 你在 Claude Code / Codex / MCP 客户端里随口给出协作偏好，宿主 AI 自行判断这是不是一条可复用的工作方式记忆，按 schema 产出 `memory_json`，直接调用 `ingest-feedback --memory-json`（CLI）或 `remember_feedback`（MCP）。你不需要手写 JSON，也不需要为日常使用配置外部模型命令。
+
+为了不让记忆越堆越多，宿主 AI 在抽取前应先看当前记忆（`view` / `build-context`）；若本次反馈是在更新某条已有记忆，就**复用它精确的 `slot` 和 `scope`**，让 resolver 替换旧记忆。CLI/MCP 也会把当前 active 记忆注入抽取 prompt，让这种复用更可靠。
+
+兜底路径（非日常）：
 
 1. `--memory-json`：用户或上游工具显式提供结构化记忆 JSON。
-2. `MEMORY_BRIDGE_LLM_COMMAND` / `--llm-command`：外部模型命令从 stdin 读取 prompt，输出 JSON。
+2. `MEMORY_BRIDGE_LLM_COMMAND` / `--llm-command`：外部模型命令从 stdin 读取 prompt，输出 JSON（适合无人值守 / 批处理）。
 
-如果没有配置模型命令，也没有提供 `--memory-json`，CLI 会打印 extraction prompt，让你复制到任意模型中生成结构化 JSON。
+如果以上都没有、也没有宿主 AI 接手，CLI 会打印 extraction prompt，让你复制到任意模型中生成结构化 JSON。
 
-这样做是为了避免在 core 里偷偷写启发式抽取规则。
+无论走哪条，core 里都不写启发式抽取规则——语义判断只交给模型或用户确认。
 
 ## 标准 8 步比赛剧本
 

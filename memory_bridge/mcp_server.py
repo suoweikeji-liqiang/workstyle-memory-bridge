@@ -16,7 +16,7 @@ from typing import Optional
 from .context_builder import ContextCriteria, build_context_markdown, select_memories
 from .deletion_verifier import verify_deleted_memory
 from .exporters import export_instruction_file
-from .extractor import extract_from_feedback
+from .extractor import existing_memory_digest, extract_from_feedback
 from .resolver import apply_drafts
 from .schemas import CreatedFrom, Scope
 from .store import MemoryStore
@@ -121,8 +121,14 @@ def create_server():
             domain=domain,
             user_id=user_id,
         )
-        drafts = extract_from_feedback(feedback, task_context=context, memory_json=payload)
         store = _store()
+        existing = None if payload else existing_memory_digest(store.list(status="active"))
+        drafts = extract_from_feedback(
+            feedback,
+            task_context=context,
+            memory_json=payload,
+            existing_memories=existing,
+        )
         evidence = store.create_evidence("user_feedback", feedback, metadata=context)
         ref = store.evidence_ref_for(evidence)
         for draft in drafts:
