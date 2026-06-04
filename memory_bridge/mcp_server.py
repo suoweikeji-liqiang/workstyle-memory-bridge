@@ -16,7 +16,7 @@ from typing import Optional
 from .context_builder import ContextCriteria, build_context_markdown, select_memories
 from .deletion_verifier import verify_deleted_memory
 from .exporters import export_instruction_file
-from .extractor import existing_memory_digest, extract_from_feedback
+from .extractor import ExtractorUnavailable, existing_memory_digest, extract_from_feedback
 from .resolver import apply_drafts, preview_drafts
 from .schemas import CreatedFrom, Scope
 from .store import MemoryStore
@@ -107,14 +107,29 @@ def create_server():
         user_id: Optional[str] = None,
         dry_run: bool = False,
     ) -> str:
-        """Convert explicit user feedback into governed workstyle memory.
+        """Save how the user wants you to work as a governed workstyle memory.
 
-        `memory_json` may contain structured extractor output. If absent, the
-        configured model-backed extractor is used. No heuristic fallback exists.
+        YOU are the extractor. Generate `memory_json` yourself from the user's
+        feedback and pass it — do NOT call with only `feedback` expecting the
+        server to extract (there is no built-in extractor; that path errors
+        unless MEMORY_BRIDGE_LLM_COMMAND is set for headless runs). If you do
+        omit it, this returns an extraction prompt so you can retry with
+        `memory_json` rather than falling back to another memory system.
 
-        Set `dry_run=True` for a propose-then-confirm flow: it returns the
-        proposed memories and which active memory each would supersede, without
-        writing anything. Call again with `dry_run=False` once the user confirms.
+        `memory_json` shape:
+          {"memories": [{
+            "type": "preference|workflow|project_rule|temporary|fact|anti_preference",
+            "scope": {"level": "global|project|tool|task_type|session|product_user",
+                      "task_type": "..."},
+            "slot": "<stable key>", "content": "...", "rationale": "...",
+            "confidence": 0.0-1.0}]}
+
+        Avoid duplicates: first call `view_memory`; if this updates an existing
+        memory, reuse its exact `slot` and `scope` so the old one is superseded.
+
+        Set `dry_run=True` to preview the proposed memories and which active
+        memory each would supersede, without writing. Call again with
+        `dry_run=False` once the user confirms.
         """
         payload = json.loads(memory_json) if memory_json else None
         context = _task_context(
@@ -128,12 +143,29 @@ def create_server():
         )
         store = _store()
         existing = None if payload else existing_memory_digest(store.list(status="active"))
-        drafts = extract_from_feedback(
-            feedback,
-            task_context=context,
-            memory_json=payload,
-            existing_memories=existing,
-        )
+        try:
+            drafts = extract_from_feedback(
+                feedback,
+                task_context=context,
+                memory_json=payload,
+                existing_memories=existing,
+            )
+        except ExtractorUnavailable as exc:
+            return json.dumps(
+                {
+                    "status": "needs_memory_json",
+                    "message": (
+                        "No server-side extractor is configured. You (the calling "
+                        "assistant) are the extractor: read extraction_prompt, produce "
+                        "the JSON it asks for, and call remember_feedback again with that "
+                        "JSON as `memory_json`. Reuse an existing slot+scope if this "
+                        "updates a known memory. Do not fall back to another memory store."
+                    ),
+                    "extraction_prompt": exc.prompt,
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
         if dry_run:
             preview = preview_drafts(store, drafts)
             return json.dumps(
