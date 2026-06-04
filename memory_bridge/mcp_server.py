@@ -17,7 +17,7 @@ from .context_builder import (
     ContextCriteria,
     available_scope_values,
     build_context_markdown,
-    select_memories,
+    select_memories_with_total,
 )
 from .deletion_verifier import verify_deleted_memory
 from .exporters import export_instruction_file
@@ -266,7 +266,7 @@ def create_server():
         concluding there is no relevant memory.
         """
         store = _store()
-        memories = select_memories(
+        memories, total = select_memories_with_total(
             store,
             _criteria(
                 project=project,
@@ -280,7 +280,9 @@ def create_server():
             limit=limit,
         )
         available = available_scope_values(store) if not memories else None
-        return build_context_markdown(memories, available_scopes=available)
+        return build_context_markdown(
+            memories, available_scopes=available, truncated_count=total - len(memories)
+        )
 
     @mcp.tool()
     def edit_memory(

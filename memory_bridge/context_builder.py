@@ -80,21 +80,40 @@ def available_scope_values(store: MemoryStore) -> Dict[str, List[str]]:
     return {dim: sorted(found) for dim, found in values.items() if found}
 
 
-def select_memories(store: MemoryStore, criteria: ContextCriteria, limit: int = 12) -> List[MemoryRecord]:
+def _matching_sorted(store: MemoryStore, criteria: ContextCriteria) -> List[MemoryRecord]:
     active = store.list(status="active")
-    selected = [memory for memory in active if scope_matches(memory.scope, criteria)]
-    selected.sort(
+    matched = [memory for memory in active if scope_matches(memory.scope, criteria)]
+    matched.sort(
         key=lambda m: (m.scope.specificity(), m.confidence, m.valid_from),
         reverse=True,
     )
-    selected = selected[:limit]
+    return matched
+
+
+def select_memories_with_total(
+    store: MemoryStore, criteria: ContextCriteria, limit: int = 12
+) -> "tuple[List[MemoryRecord], int]":
+    """Return (selected, total_matched).
+
+    total_matched is the count of scope-matching active memories *before* the
+    limit cap, so callers can report how many relevant memories were not shown
+    instead of truncating silently.
+    """
+    matched = _matching_sorted(store, criteria)
+    selected = matched[:limit]
     store.mark_used(selected)
+    return selected, len(matched)
+
+
+def select_memories(store: MemoryStore, criteria: ContextCriteria, limit: int = 12) -> List[MemoryRecord]:
+    selected, _ = select_memories_with_total(store, criteria, limit=limit)
     return selected
 
 
 def build_context_markdown(
     memories: Iterable[MemoryRecord],
     available_scopes: Optional[Dict[str, List[str]]] = None,
+    truncated_count: int = 0,
 ) -> str:
     memories = list(memories)
     if not memories:
@@ -119,6 +138,12 @@ def build_context_markdown(
     ]
     for memory in memories:
         lines.append(f"- ({memory.type}, scope={memory.scope.key()}, slot={memory.slot}) {memory.content}")
+    if truncated_count > 0:
+        lines.append("")
+        lines.append(
+            f"> {truncated_count} more memory(ies) also matched this scope but were not shown "
+            "(showing the most specific/recent first). Raise the limit or narrow the scope to see them."
+        )
     return "\n".join(lines)
 
 

@@ -12,7 +12,7 @@ from .context_builder import (
     available_scope_values,
     build_context_json,
     build_context_markdown,
-    select_memories,
+    select_memories_with_total,
 )
 from .deletion_verifier import verify_deleted_memory
 from .diagnostics import export_diagnostic_bundle
@@ -216,12 +216,18 @@ def cmd_inspect(args: argparse.Namespace) -> int:
 
 def cmd_build_context(args: argparse.Namespace) -> int:
     store = _store(args)
-    memories = select_memories(store, _criteria(args), limit=args.limit)
+    memories, total = select_memories_with_total(store, _criteria(args), limit=args.limit)
     if args.format == "json":
         print(build_context_json(memories))
     else:
         available = available_scope_values(store) if not memories else None
-        print(build_context_markdown(memories, available_scopes=available))
+        print(
+            build_context_markdown(
+                memories,
+                available_scopes=available,
+                truncated_count=total - len(memories),
+            )
+        )
     return 0
 
 
