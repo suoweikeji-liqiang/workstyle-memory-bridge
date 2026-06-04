@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Optional
+from typing import Any, Dict, Optional, Union
 
 from .context_builder import ContextCriteria, build_context_markdown, select_memories
 from .deletion_verifier import verify_deleted_memory
@@ -97,7 +97,7 @@ def create_server():
     @mcp.tool()
     def remember_feedback(
         feedback: str,
-        memory_json: Optional[str] = None,
+        memory_json: Optional[Union[str, Dict[str, Any]]] = None,
         project: Optional[str] = None,
         tool: Optional[str] = None,
         task_type: Optional[str] = None,
@@ -116,6 +116,9 @@ def create_server():
         omit it, this returns an extraction prompt so you can retry with
         `memory_json` rather than falling back to another memory system.
 
+        Pass `memory_json` as a JSON object (preferred) or a JSON string —
+        both are accepted.
+
         `memory_json` shape:
           {"memories": [{
             "type": "preference|workflow|project_rule|temporary|fact|anti_preference",
@@ -131,7 +134,15 @@ def create_server():
         memory each would supersede, without writing. Call again with
         `dry_run=False` once the user confirms.
         """
-        payload = json.loads(memory_json) if memory_json else None
+        # Accept memory_json as a JSON object OR a JSON string: the model tends to
+        # send an object, and some MCP clients auto-parse JSON-looking strings into
+        # objects. Tolerating both avoids a catch-22 where neither form validates.
+        if memory_json is None:
+            payload = None
+        elif isinstance(memory_json, str):
+            payload = json.loads(memory_json)
+        else:
+            payload = memory_json
         context = _task_context(
             project=project,
             tool=tool,
