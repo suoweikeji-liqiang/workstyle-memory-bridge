@@ -12,13 +12,19 @@ BEGIN = "<!-- memory-bridge:begin -->"
 END = "<!-- memory-bridge:end -->"
 
 
-def managed_section(memories: Iterable[MemoryRecord], target: str) -> str:
+def managed_section(memories: Iterable[MemoryRecord], target: str, scoped_count: int = 0) -> str:
     title = "Claude Code" if target == "claude" else "Codex"
     body = build_context_markdown(memories)
+    note = ""
+    if scoped_count:
+        note = (
+            f"\n\n> {scoped_count} task/project/tool-scoped memory(ies) are kept out of this "
+            "always-on file to keep it small; they load on demand via `build_context`."
+        )
     return f"""{BEGIN}
 # Workstyle Memory Bridge for {title}
 
-{body}
+{body}{note}
 
 These entries are managed by Memory Bridge. To inspect or change them, use:
 
@@ -39,11 +45,30 @@ def strip_existing_section(text: str) -> str:
     return (text[:start] + text[end + len(END) :]).strip()
 
 
-def export_instruction_file(path: str | Path, memories: Iterable[MemoryRecord], target: str) -> Path:
+def export_instruction_file(
+    path: str | Path,
+    memories: Iterable[MemoryRecord],
+    target: str,
+    global_only: bool = True,
+) -> Path:
+    """Write memories into a tool-native instruction file.
+
+    By default only global-scope memories are inlined, so the always-on file
+    stays small no matter how many scoped preferences accumulate. Scoped
+    memories are loaded on demand via build_context instead. Pass
+    global_only=False to inline everything.
+    """
+    memories = list(memories)
+    if global_only:
+        inlined = [m for m in memories if m.scope.level == "global"]
+        scoped_count = len(memories) - len(inlined)
+    else:
+        inlined = memories
+        scoped_count = 0
     path = Path(path)
     existing = path.read_text(encoding="utf-8") if path.exists() else ""
     cleaned = strip_existing_section(existing)
-    section = managed_section(memories, target=target)
+    section = managed_section(inlined, target=target, scoped_count=scoped_count)
     final = section if not cleaned else f"{section}\n\n{cleaned}"
     path.write_text(final + "\n", encoding="utf-8")
     return path

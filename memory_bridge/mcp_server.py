@@ -354,34 +354,27 @@ def create_server():
         return report.text()
 
     @mcp.tool()
-    def export_instructions(
-        target: str,
-        path: str,
-        project: Optional[str] = None,
-        tool: Optional[str] = None,
-        task_type: Optional[str] = None,
-        session_id: Optional[str] = None,
-        product: Optional[str] = None,
-        domain: Optional[str] = None,
-        user_id: Optional[str] = None,
-        limit: int = 12,
-    ) -> str:
-        """Export selected memories into a managed CLAUDE.md or AGENTS.md section."""
-        memories = select_memories(
-            _store(),
-            _criteria(
-                project=project,
-                tool=tool,
-                task_type=task_type,
-                session_id=session_id,
-                product=product,
-                domain=domain,
-                user_id=user_id,
-            ),
-            limit=limit,
+    def export_instructions(target: str, path: str, include_scoped: bool = False) -> str:
+        """Write workstyle memories into a managed CLAUDE.md / AGENTS.md section.
+
+        By default only global-scope memories are inlined, so this always-on file
+        stays small no matter how many preferences accumulate. Task/project/tool
+        -scoped memories are NOT inlined — they load on demand via build_context.
+        Set include_scoped=True only if you deliberately want everything inlined.
+        """
+        store = _store()
+        memories = store.list(status="active")
+        output_path = export_instruction_file(
+            path, memories, target=target, global_only=not include_scoped
         )
-        output_path = export_instruction_file(path, memories, target=target)
-        return f"Exported {len(memories)} memories to {output_path}"
+        if include_scoped:
+            return f"Exported {len(memories)} memories to {output_path}"
+        inlined = sum(1 for memory in memories if memory.scope.level == "global")
+        scoped = len(memories) - inlined
+        message = f"Exported {inlined} global memories to {output_path}"
+        if scoped:
+            message += f"; {scoped} scoped kept out (load on demand via build_context)"
+        return message
 
     return mcp
 

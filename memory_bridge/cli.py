@@ -275,9 +275,19 @@ def cmd_edit(args: argparse.Namespace) -> int:
 
 def cmd_export(args: argparse.Namespace) -> int:
     store = _store(args)
-    memories = select_memories(store, _criteria(args), limit=args.limit)
-    path = export_instruction_file(args.path, memories, target=args.target)
-    print(f"Exported {len(memories)} memories to {path}")
+    memories = store.list(status="active")
+    path = export_instruction_file(
+        args.path, memories, target=args.target, global_only=not args.all_scopes
+    )
+    if args.all_scopes:
+        print(f"Exported {len(memories)} memories to {path}")
+        return 0
+    inlined = sum(1 for m in memories if m.scope.level == "global")
+    scoped = len(memories) - inlined
+    message = f"Exported {inlined} global memories to {path}"
+    if scoped:
+        message += f" ({scoped} scoped kept out — they load on demand via build-context)"
+    print(message)
     return 0
 
 
@@ -372,8 +382,11 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("export")
     p.add_argument("target", choices=["claude", "codex"])
     p.add_argument("--path", required=True)
-    add_scope_args(p)
-    p.add_argument("--limit", type=int, default=12)
+    p.add_argument(
+        "--all-scopes",
+        action="store_true",
+        help="Inline all active memories. Default: only global ones; scoped memories load on demand via build-context.",
+    )
     p.set_defaults(func=cmd_export)
 
     p = sub.add_parser("export-diagnostic")
