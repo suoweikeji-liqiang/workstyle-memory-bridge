@@ -59,6 +59,27 @@ def scope_matches(scope: Scope, criteria: ContextCriteria) -> bool:
     return False
 
 
+SCOPE_DIMENSIONS = ("project", "tool", "task_type", "session_id", "product", "domain", "user_id")
+
+
+def available_scope_values(store: MemoryStore) -> Dict[str, List[str]]:
+    """Distinct non-null scope values across active memories, per dimension.
+
+    The store is the only vocabulary source: a caller (or the host AI) that found
+    no match can reuse one of these exact values instead of inventing a variant
+    (e.g. 'bugfix' vs the stored 'bug-fix') that would miss the exact scope match.
+    No normalization is applied here; matching stays exact in scope_matches.
+    """
+    values: Dict[str, set] = {dim: set() for dim in SCOPE_DIMENSIONS}
+    for memory in store.list(status="active"):
+        data = memory.scope.to_dict()
+        for dim in SCOPE_DIMENSIONS:
+            value = data.get(dim)
+            if value:
+                values[dim].add(value)
+    return {dim: sorted(found) for dim, found in values.items() if found}
+
+
 def select_memories(store: MemoryStore, criteria: ContextCriteria, limit: int = 12) -> List[MemoryRecord]:
     active = store.list(status="active")
     selected = [memory for memory in active if scope_matches(memory.scope, criteria)]
@@ -71,10 +92,25 @@ def select_memories(store: MemoryStore, criteria: ContextCriteria, limit: int = 
     return selected
 
 
-def build_context_markdown(memories: Iterable[MemoryRecord]) -> str:
+def build_context_markdown(
+    memories: Iterable[MemoryRecord],
+    available_scopes: Optional[Dict[str, List[str]]] = None,
+) -> str:
     memories = list(memories)
     if not memories:
-        return "No active workstyle memories matched this context."
+        base = "No active workstyle memories matched this context."
+        if not available_scopes:
+            return base
+        lines = [
+            base,
+            "",
+            "Active memories use the scope values below. If one fits the current",
+            "task, call build_context again with that exact value (scope is matched",
+            "exactly — reuse the stored value rather than a variant):",
+        ]
+        for dim, found in available_scopes.items():
+            lines.append(f"- {dim}: {', '.join(found)}")
+        return "\n".join(lines)
     lines = [
         "# Active Workstyle Memories",
         "",

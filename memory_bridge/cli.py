@@ -7,7 +7,13 @@ import json
 import sys
 from typing import Any, Dict, List, Optional
 
-from .context_builder import ContextCriteria, build_context_json, build_context_markdown, select_memories
+from .context_builder import (
+    ContextCriteria,
+    available_scope_values,
+    build_context_json,
+    build_context_markdown,
+    select_memories,
+)
 from .deletion_verifier import verify_deleted_memory
 from .diagnostics import export_diagnostic_bundle
 from .doctor import run_doctor
@@ -209,7 +215,8 @@ def cmd_build_context(args: argparse.Namespace) -> int:
     if args.format == "json":
         print(build_context_json(memories))
     else:
-        print(build_context_markdown(memories))
+        available = available_scope_values(store) if not memories else None
+        print(build_context_markdown(memories, available_scopes=available))
     return 0
 
 

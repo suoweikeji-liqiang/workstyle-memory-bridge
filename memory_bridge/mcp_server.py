@@ -13,7 +13,12 @@ import json
 import os
 from typing import Any, Dict, Optional, Union
 
-from .context_builder import ContextCriteria, build_context_markdown, select_memories
+from .context_builder import (
+    ContextCriteria,
+    available_scope_values,
+    build_context_markdown,
+    select_memories,
+)
 from .deletion_verifier import verify_deleted_memory
 from .exporters import export_instruction_file
 from .extractor import ExtractorUnavailable, existing_memory_digest, extract_from_feedback
@@ -245,9 +250,16 @@ def create_server():
         user_id: Optional[str] = None,
         limit: int = 12,
     ) -> str:
-        """Return relevant active workstyle memories for the current task context."""
+        """Return relevant active workstyle memories for the current task context.
+
+        Scope is matched exactly. If nothing matches, this lists the scope values
+        the stored memories actually use — reuse the exact value (e.g. the stored
+        `bug-fix`, not a variant like `bugfix`) and call again, rather than
+        concluding there is no relevant memory.
+        """
+        store = _store()
         memories = select_memories(
-            _store(),
+            store,
             _criteria(
                 project=project,
                 tool=tool,
@@ -259,7 +271,8 @@ def create_server():
             ),
             limit=limit,
         )
-        return build_context_markdown(memories)
+        available = available_scope_values(store) if not memories else None
+        return build_context_markdown(memories, available_scopes=available)
 
     @mcp.tool()
     def edit_memory(
