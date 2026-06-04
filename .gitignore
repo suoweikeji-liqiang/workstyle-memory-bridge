@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Memory Bridge runtime data (NEVER commit — contains personal memory + feedback)
+*.sqlite
+*.sqlite3
+*.db
+.memory_bridge/
+diagnostic*.zip
+*.diagnostic.zip
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
