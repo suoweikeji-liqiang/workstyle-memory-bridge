@@ -16,8 +16,7 @@ from typing import Any, Dict, Optional, Union
 from .context_builder import (
     ContextCriteria,
     available_scope_values,
-    build_context_markdown,
-    select_memories_with_total,
+    respond_to_context_request,
 )
 from .deletion_verifier import verify_deleted_memory
 from .exporters import export_instruction_file
@@ -260,13 +259,13 @@ def create_server():
     ) -> str:
         """Return relevant active workstyle memories for the current task context.
 
-        Scope is matched exactly. If nothing matches, this lists the scope values
-        the stored memories actually use — reuse the exact value (e.g. the stored
-        `bug-fix`, not a variant like `bugfix`) and call again, rather than
-        concluding there is no relevant memory.
+        Scope is matched exactly. The response also lists stored scope values
+        this call did NOT match — scoped memories you could reach by calling
+        again with one of those exact values (never invent a variant). Pass the
+        dimensions you know (especially task_type) so scoped memories can fire.
         """
         store = _store()
-        memories, total = select_memories_with_total(
+        return respond_to_context_request(
             store,
             _criteria(
                 project=project,
@@ -278,10 +277,7 @@ def create_server():
                 user_id=user_id,
             ),
             limit=limit,
-        )
-        available = available_scope_values(store) if not memories else None
-        return build_context_markdown(
-            memories, available_scopes=available, truncated_count=total - len(memories)
+            actor="mcp",
         )
 
     @mcp.tool()

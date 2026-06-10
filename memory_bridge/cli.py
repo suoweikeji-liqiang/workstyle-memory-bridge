@@ -10,9 +10,7 @@ from typing import Any, Dict, List, Optional
 from .context_builder import (
     ContextCriteria,
     available_scope_values,
-    build_context_json,
-    build_context_markdown,
-    select_memories_with_total,
+    respond_to_context_request,
 )
 from .deletion_verifier import verify_deleted_memory
 from .diagnostics import export_diagnostic_bundle
@@ -216,18 +214,17 @@ def cmd_inspect(args: argparse.Namespace) -> int:
 
 def cmd_build_context(args: argparse.Namespace) -> int:
     store = _store(args)
-    memories, total = select_memories_with_total(store, _criteria(args), limit=args.limit)
-    if args.format == "json":
-        print(build_context_json(memories))
-    else:
-        available = available_scope_values(store) if not memories else None
-        print(
-            build_context_markdown(
-                memories,
-                available_scopes=available,
-                truncated_count=total - len(memories),
-            )
+    print(
+        respond_to_context_request(
+            store, _criteria(args), limit=args.limit, actor="cli", fmt=args.format
         )
+    )
+    return 0
+
+
+def cmd_context_log(args: argparse.Namespace) -> int:
+    store = _store(args)
+    print(json.dumps(store.context_requests(limit=args.limit), ensure_ascii=False, indent=2))
     return 0
 
 
@@ -405,6 +402,13 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("events")
     p.add_argument("--limit", type=int, default=50)
     p.set_defaults(func=cmd_events)
+
+    p = sub.add_parser(
+        "context-log",
+        help="Read-path audit: when context was requested, with what scope, and what it got",
+    )
+    p.add_argument("--limit", type=int, default=50)
+    p.set_defaults(func=cmd_context_log)
 
     return parser
 

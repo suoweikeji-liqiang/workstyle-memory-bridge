@@ -72,6 +72,16 @@ class MemoryStore:
                 metadata_json TEXT NOT NULL,
                 created_at TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS context_requests (
+                request_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp TEXT NOT NULL,
+                actor TEXT NOT NULL,
+                criteria_json TEXT NOT NULL,
+                matched_count INTEGER NOT NULL,
+                returned_ids_json TEXT NOT NULL,
+                unmatched_count INTEGER NOT NULL
+            );
             """
         )
         self._ensure_memory_columns()
@@ -94,6 +104,7 @@ class MemoryStore:
         self.conn.execute("DELETE FROM memories")
         self.conn.execute("DELETE FROM memory_events")
         self.conn.execute("DELETE FROM evidence_events")
+        self.conn.execute("DELETE FROM context_requests")
         self.conn.execute(
             "INSERT INTO memory_events(timestamp, action, actor, note) VALUES (?, ?, ?, ?)",
             (utc_now(), "reset", actor, note),
@@ -273,6 +284,46 @@ class MemoryStore:
             "SELECT * FROM memory_events ORDER BY event_id DESC LIMIT ?", (limit,)
         ).fetchall()
         return [dict(row) for row in rows]
+
+    def log_context_request(
+        self,
+        actor: str,
+        criteria: Dict[str, str],
+        matched_count: int,
+        returned_ids: List[str],
+        unmatched_count: int,
+    ) -> None:
+        """Append one read-path audit row. memory_events covers writes; this
+        makes "why didn't my memory fire" answerable from the store."""
+        self.conn.execute(
+            """
+            INSERT INTO context_requests(
+                timestamp, actor, criteria_json, matched_count,
+                returned_ids_json, unmatched_count
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                utc_now(),
+                actor,
+                json.dumps(criteria, ensure_ascii=False),
+                matched_count,
+                json.dumps(returned_ids),
+                unmatched_count,
+            ),
+        )
+        self.conn.commit()
+
+    def context_requests(self, limit: int = 50) -> List[Dict[str, Any]]:
+        rows = self.conn.execute(
+            "SELECT * FROM context_requests ORDER BY request_id DESC LIMIT ?", (limit,)
+        ).fetchall()
+        requests = []
+        for row in rows:
+            data = dict(row)
+            data["criteria"] = json.loads(data.pop("criteria_json"))
+            data["returned_ids"] = json.loads(data.pop("returned_ids_json"))
+            requests.append(data)
+        return requests
 
     def _row_to_record(self, row: sqlite3.Row) -> MemoryRecord:
         return MemoryRecord.from_dict(

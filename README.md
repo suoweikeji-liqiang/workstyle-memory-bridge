@@ -98,7 +98,8 @@ v0.3 借鉴了 TencentDB-Agent-Memory 这类分层记忆系统的关键思想：
 - `view`：查看 active / superseded / archived / deleted / all 记忆。
 - `inspect`：查看单条记忆的 memory card、证据来源和生命周期。
 - `ingest-feedback`：把用户反馈转成结构化记忆。
-- `build-context`：根据显式 scope 生成给 Claude/Codex/产品助手使用的上下文。
+- `build-context`：根据显式 scope 生成给 Claude/Codex/产品助手使用的上下文；每次返回都会列出本次**没有**命中的 scoped 记忆及其精确 scope 值，杜绝"静默不召回"。
+- `context-log`：读路径审计。每次 build-context 的调用参数、命中结果、未命中数量都有记录，"为什么没用我的记忆"可以直接查证。
 - `edit`：修改记忆内容、scope、slot、confidence、status。
 - `delete`：删除记忆，删除后不再进入上下文和导出文件。
 - `verify-deletion`：验证被删除记忆不会再进入 context 或 Claude/Codex 投影。

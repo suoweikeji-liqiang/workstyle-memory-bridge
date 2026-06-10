@@ -58,6 +58,10 @@ def export_diagnostic_bundle(store: MemoryStore, output_path: str | Path) -> Pat
             "memory_events.json",
             json.dumps(events, ensure_ascii=False, indent=2),
         )
+        archive.writestr(
+            "context_requests.json",
+            json.dumps(store.context_requests(limit=1000), ensure_ascii=False, indent=2),
+        )
         archive.writestr("memory_cards.md", "\n".join(memory_cards))
         archive.writestr("active_context.md", build_context_markdown(active))
         archive.writestr(

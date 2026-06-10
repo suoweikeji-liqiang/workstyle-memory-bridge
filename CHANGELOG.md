@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.4.0
+
+Read-path observability, driven by a week of real dogfooding: scoped memories
+(`task_type=feature-development`) silently never fired because global memories
+match every call, so the empty-result scope hint was unreachable and nothing
+recorded what callers had asked for.
+
+- Every `build-context` response now reports scoped active memories the call
+  did NOT match, with their exact stored scope values (enumeration only —
+  matching stays exact, no fuzzy rules).
+- Added `context_requests` audit table: every CLI/MCP context request logs its
+  criteria, returned memory ids, matched and unmatched counts.
+- Added `context-log` command to query the read-path audit.
+- Diagnostic bundles now include `context_requests.json`.
+- `reset` also clears the read-path audit for reproducible runs.
+
 ## 0.3.0
 
 Traceability update after reviewing layered agent-memory systems such as TencentDB-Agent-Memory.

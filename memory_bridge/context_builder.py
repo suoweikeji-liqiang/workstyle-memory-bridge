@@ -6,8 +6,8 @@ Selection is based on explicit scope metadata, not text keyword matching.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional
+from dataclasses import asdict, dataclass
+from typing import Dict, Iterable, List, Optional, Tuple
 
 from .schemas import MemoryRecord, Scope
 from .store import MemoryStore
@@ -22,6 +22,9 @@ class ContextCriteria:
     product: Optional[str] = None
     domain: Optional[str] = None
     user_id: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, str]:
+        return {key: value for key, value in asdict(self).items() if value is not None}
 
     def to_scope(self) -> Scope:
         return Scope(
@@ -78,6 +81,30 @@ def available_scope_values(store: MemoryStore) -> Dict[str, List[str]]:
             if value:
                 values[dim].add(value)
     return {dim: sorted(found) for dim, found in values.items() if found}
+
+
+def unmatched_scope_summary(
+    store: MemoryStore, criteria: ContextCriteria
+) -> Tuple[int, Dict[str, List[str]]]:
+    """Active memories this call cannot reach, with their exact scope values.
+
+    Globals match every call, so a response can look successful while scoped
+    memories silently never fire — because the dimension was omitted, or its
+    value drifted from the stored one. Enumerating the unmatched stored values
+    lets the host AI re-call with an exact key; matching itself stays exact.
+    """
+    unmatched = [
+        memory
+        for memory in store.list(status="active")
+        if not scope_matches(memory.scope, criteria)
+    ]
+    values: Dict[str, set] = {}
+    for memory in unmatched:
+        data = memory.scope.to_dict()
+        for dim in SCOPE_DIMENSIONS:
+            if data.get(dim):
+                values.setdefault(dim, set()).add(data[dim])
+    return len(unmatched), {dim: sorted(found) for dim, found in values.items()}
 
 
 def _matching_sorted(store: MemoryStore, criteria: ContextCriteria) -> List[MemoryRecord]:
@@ -149,3 +176,45 @@ def build_context_markdown(
 
 def build_context_json(memories: Iterable[MemoryRecord]) -> str:
     return json.dumps([memory.to_dict() for memory in memories], ensure_ascii=False, indent=2)
+
+
+def respond_to_context_request(
+    store: MemoryStore,
+    criteria: ContextCriteria,
+    limit: int,
+    actor: str,
+    fmt: str = "markdown",
+) -> str:
+    """Serve one read-path request: select, log it, and render.
+
+    The single implementation behind the CLI `build-context` command and the
+    MCP `build_context` tool, so the unmatched-scope hint and the
+    context_requests audit row stay consistent across entry points. Projection
+    and verification paths (export, verify-deletion) call the selector directly
+    and are deliberately NOT logged as context requests.
+    """
+    memories, total = select_memories_with_total(store, criteria, limit=limit)
+    unmatched_count, unmatched_values = unmatched_scope_summary(store, criteria)
+    store.log_context_request(
+        actor=actor,
+        criteria=criteria.to_dict(),
+        matched_count=total,
+        returned_ids=[memory.id for memory in memories],
+        unmatched_count=unmatched_count,
+    )
+    if fmt == "json":
+        return build_context_json(memories)
+    available = available_scope_values(store) if not memories else None
+    text = build_context_markdown(
+        memories, available_scopes=available, truncated_count=total - len(memories)
+    )
+    if memories and unmatched_count:
+        lines = [
+            f"> {unmatched_count} scoped active memory(ies) did NOT match this call and were not included.",
+            "> If a stored value below fits the current task, call build_context again with that",
+            "> exact value (scope matching is exact — reuse stored values, never invent variants):",
+        ]
+        for dim, found in sorted(unmatched_values.items()):
+            lines.append(f"> - {dim}: {', '.join(found)}")
+        text = text + "\n\n" + "\n".join(lines)
+    return text
