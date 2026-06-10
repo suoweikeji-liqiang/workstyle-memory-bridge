@@ -105,9 +105,13 @@ JSON schema:
 
 
 def load_json_argument(value: str) -> Dict[str, Any]:
-    """Load JSON from a direct string or from @path."""
+    """Load JSON from a direct string or from @path.
+
+    utf-8-sig: Windows PowerShell's `Out-File -Encoding utf8` writes a BOM,
+    which plain utf-8 rejects; utf-8-sig reads both BOM and BOM-less files.
+    """
     if value.startswith("@"):
-        with open(value[1:], "r", encoding="utf-8") as f:
+        with open(value[1:], "r", encoding="utf-8-sig") as f:
             return json.load(f)
     return json.loads(value)
 
