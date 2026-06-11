@@ -105,7 +105,7 @@ v0.3 借鉴了 TencentDB-Agent-Memory 这类分层记忆系统的关键思想：
 - `verify-deletion`：验证被删除记忆不会再进入 context 或 Claude/Codex 投影。
 - `export claude`：导出到 `CLAUDE.md` 的 managed section。
 - `export codex`：导出到 `AGENTS.md` 的 managed section。
-- `doctor`：检查重复 active 记忆、过长记忆等生命周期问题。
+- `doctor`：生命周期检查（重复 active、过长内容）+ 召回健康检查——哪些 scoped 记忆有机会却从未被返回、哪些被请求的 scope 值无记忆可匹配。只报事实；语义判断和修订提案由宿主 AI 走治理通道（dry-run → 用户确认 → supersede）。也作为 MCP 工具 `memory_doctor` 暴露给宿主。
 - `export-diagnostic`：导出本地诊断包，包含记忆、证据和事件，便于复测。
 - optional MCP server：让 MCP 客户端通过同一套核心逻辑调用记忆能力。
 

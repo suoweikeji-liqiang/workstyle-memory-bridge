@@ -18,6 +18,7 @@ One feedback event should improve future collaboration across tools while remain
 - `inspect_memory`: inspect a memory card, source evidence, and lifecycle.
 - `build_context`: return relevant active memories for a task. Scope matching is exact — reuse the stored scope values (the managed export section and the unmatched hint both list them) rather than inventing variants.
 - `edit_memory`: update a memory.
+- `memory_doctor`: lifecycle + recall health report (dead scoped memories, requested scope values that matched nothing). Facts only — the host AI judges semantics and proposes governed fixes for the user to confirm.
 - `delete_memory`: delete a memory so it stops being used.
 - `verify_deletion`: verify a deleted memory is absent from context and Claude/Codex projections.
 - `export_instructions`: write active memories into Claude/Codex instruction files.

@@ -19,6 +19,7 @@ from .context_builder import (
     respond_to_context_request,
 )
 from .deletion_verifier import verify_deleted_memory
+from .doctor import run_doctor
 from .exporters import export_instruction_file, server_instructions
 from .extractor import ExtractorUnavailable, existing_memory_digest, extract_from_feedback
 from .resolver import apply_drafts, preview_drafts
@@ -356,6 +357,21 @@ def create_server():
             limit=limit,
         )
         return report.text()
+
+    @mcp.tool()
+    def memory_doctor() -> str:
+        """Health-check the memory store: lifecycle issues plus recall health.
+
+        Call this FIRST when the user asks why a stored memory did not fire or
+        was not applied. It cross-references the read-path audit
+        (context_requests) with stored scopes and reports facts only — scoped
+        memories never returned despite logged requests, and requested scope
+        values that matched nothing. YOU judge the semantics: if a requested
+        label and a stored value name the same kind of work, propose a governed
+        fix (edit_memory, or remember_feedback with dry_run) and let the user
+        confirm. Never silently rewrite memories.
+        """
+        return run_doctor(_store()).text()
 
     @mcp.tool()
     def export_instructions(target: str, path: str, include_scoped: bool = False) -> str:

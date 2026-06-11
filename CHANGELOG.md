@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.6.0
+
+Recall health: usage data can now drive governed memory revision — the
+"why didn't my memory fire" question becomes one tool call instead of an
+archaeology session.
+
+- `doctor` cross-references the read-path audit with stored scopes and
+  reports two kinds of facts: scoped memories never returned despite logged
+  requests, and requested scope values that matched nothing (counted per
+  value, only for dimensions the store actually organizes by).
+- Facts only by design: no similarity scoring, no value mapping. The host
+  AI / user judges whether a requested label and a stored value name the
+  same kind of work; fixes go through the existing governed edit path
+  (dry-run, confirm, supersede with evidence).
+- Exposed as MCP tool `memory_doctor`; skill guidance tells hosts to call
+  it first when the user asks why a memory was not applied.
+
 ## 0.5.0
 
 Zero-time context now rides the MCP handshake itself. Insight credit: a
