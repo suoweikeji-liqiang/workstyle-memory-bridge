@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.5.0
+
+Zero-time context now rides the MCP handshake itself. Insight credit: a
+user question — "doesn't loading the MCP bring this along?" — exposed that
+three rounds of export-to-wall patching had overlooked the protocol-native
+mechanism.
+
+- The MCP server now ships `instructions` (computed from the live store at
+  server start): always-on global memories inlined, scoped vocabulary
+  enumerated. Hosts that surface MCP instructions get the full zero-time
+  context with no instruction-file export and no manual refresh — new
+  installs work out of the box.
+- `export` remains as the fallback for hosts that do not surface MCP
+  instructions.
+
 ## 0.4.1
 
 Zero-time vocabulary. Field data showed hosts improvise task_type labels on

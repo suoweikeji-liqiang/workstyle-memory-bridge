@@ -49,6 +49,45 @@ memory-bridge delete <memory_id>
 """.strip()
 
 
+def server_instructions(memories: Iterable[MemoryRecord]) -> str:
+    """Zero-time context for the MCP handshake.
+
+    Hosts that surface MCP server instructions place this in the system prompt
+    at session start, so a fresh session knows the always-on memories and the
+    exact scoped vocabulary before its first tool call — no instruction-file
+    export required. Recomputed each server start; mid-session memory changes
+    appear in the next session.
+    """
+    memories = list(memories)
+    inlined = [m for m in memories if m.scope.level == "global"]
+    scoped = [m for m in memories if m.scope.level != "global"]
+    lines = ["This server governs how the user wants you to work (workstyle memories)."]
+    if inlined:
+        lines += [
+            "",
+            "Always-on global memories — follow them; explicit user instructions "
+            "in the current task override:",
+        ]
+        lines += [f"- ({m.type}, slot={m.slot}) {m.content}" for m in inlined]
+    if scoped:
+        lines += [
+            "",
+            f"{len(scoped)} scoped memory(ies) load on demand. At task start, call "
+            "build_context with the exact stored scope value that fits the task "
+            "(matching is exact — never invent variants):",
+        ]
+        for dim, found in collect_scope_values(scoped).items():
+            lines.append(f"- {dim}: {', '.join(found)}")
+    if not memories:
+        lines += [
+            "",
+            "No memories stored yet. When the user states a durable workstyle "
+            "preference, capture it via remember_feedback (dry_run first unless "
+            "the user explicitly says to remember).",
+        ]
+    return "\n".join(lines)
+
+
 def strip_existing_section(text: str) -> str:
     start = text.find(BEGIN)
     end = text.find(END)

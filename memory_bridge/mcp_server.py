@@ -19,7 +19,7 @@ from .context_builder import (
     respond_to_context_request,
 )
 from .deletion_verifier import verify_deleted_memory
-from .exporters import export_instruction_file
+from .exporters import export_instruction_file, server_instructions
 from .extractor import ExtractorUnavailable, existing_memory_digest, extract_from_feedback
 from .resolver import apply_drafts, preview_drafts
 from .schemas import CreatedFrom, Scope
@@ -83,7 +83,13 @@ def create_server():
     if FastMCP is None:
         raise RuntimeError("MCP dependency is not installed. Try: pip install 'mcp>=1.0.0'")
 
-    mcp = FastMCP("workstyle-memory-governance")
+    # Instructions ride the MCP handshake: hosts that surface them give every
+    # fresh session the always-on memories and scoped vocabulary at time zero,
+    # with no instruction-file export step.
+    mcp = FastMCP(
+        "workstyle-memory-governance",
+        instructions=server_instructions(_store().list(status="active")),
+    )
 
     @mcp.tool()
     def reset_memory() -> str:
