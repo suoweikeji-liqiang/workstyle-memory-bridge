@@ -85,6 +85,20 @@ def server_instructions(memories: Iterable[MemoryRecord]) -> str:
             "preference, capture it via remember_feedback (dry_run first unless "
             "the user explicitly says to remember).",
         ]
+    # Routing ships with the server, not with one user's hand-written config:
+    # hosts have a native-memory instinct, and a preference duplicated there
+    # drifts on edits and survives verify-deletion.
+    lines += [
+        "",
+        "Memory routing: durable workstyle preferences (how the user wants you "
+        "to plan, write, review, communicate) belong in THIS store — capture "
+        "them via remember_feedback and do NOT also write them into your own "
+        "native memory; duplicate copies drift and survive deletion. If you "
+        "notice the same preference both here and in native memory or an "
+        "instruction file, tell the user and propose consolidating it into this "
+        "store (dry_run first; the user confirms). Native memory remains the "
+        "right place for non-workstyle facts such as project notes and todos.",
+    ]
     return "\n".join(lines)
 
 

@@ -56,6 +56,19 @@ def test_instructions_on_empty_store_invite_capture(tmp_path):
     assert "remember_feedback" in text
 
 
+def test_instructions_carry_memory_routing_rule(tmp_path):
+    """Anti-duplicate routing must ship with the server, not live only in one
+    user's hand-written CLAUDE.md: hosts have a native-memory instinct, and a
+    preference duplicated there drifts and survives verify-deletion."""
+    store = MemoryStore(str(tmp_path / "i.sqlite"))
+    empty = server_instructions(store.list(status="active"))
+    assert "native memory" in empty  # routing present from day one
+    assert "consolidat" in empty  # duplicates get proposed for consolidation
+    _seed(store)
+    populated = server_instructions(store.list(status="active"))
+    assert "native memory" in populated  # and stays present with content
+
+
 def test_create_server_computes_instructions_from_live_store(tmp_path, monkeypatch):
     pytest.importorskip("mcp")
     db = str(tmp_path / "i.sqlite")

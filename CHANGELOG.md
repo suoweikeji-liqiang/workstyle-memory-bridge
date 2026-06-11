@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.6.1
+
+Memory routing ships with the server. Locally the anti-duplicate rule lived
+in one user's hand-written CLAUDE.md; distributed users would get double
+capture (host native memory + this store), where duplicates drift on edits
+and survive deletion — silently breaking the verify-deletion guarantee.
+
+- MCP server instructions now carry the routing rule at the handshake:
+  workstyle preferences belong in this store, never duplicated into host
+  native memory; discovered duplicates are surfaced with a consolidation
+  proposal (dry-run, user confirms). Native memory stays the right place
+  for non-workstyle facts.
+- Same rule added to the skill guidance.
+
 ## 0.6.0
 
 Recall health: usage data can now drive governed memory revision — the

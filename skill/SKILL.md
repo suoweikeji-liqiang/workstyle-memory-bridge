@@ -10,6 +10,10 @@ It is not a generic memory MCP. It is a traceable governance layer for rememberi
 
 One feedback event should improve future collaboration across tools while remaining inspectable, editable, reversible, and traceable to source evidence.
 
+## Memory routing (avoid duplicate stores)
+
+Durable workstyle preferences belong in this store only — hosts must not duplicate them into their own native memory (duplicates drift on edits and survive deletion, breaking the verify-deletion guarantee). Duplicates found in native memory or instruction files are surfaced to the user with a consolidation proposal (dry-run, user confirms). Native memory remains the right place for non-workstyle facts such as project notes and todos. This rule ships in the MCP server instructions, so every host receives it at the handshake.
+
 ## Tools
 
 - `reset_memory`: clear all memories and evidence events for reproducible testing.
