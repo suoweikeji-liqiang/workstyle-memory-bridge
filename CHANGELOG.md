@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.4.1
+
+Zero-time vocabulary. Field data showed hosts improvise task_type labels on
+their first call (ops-guidance, code-edit, debugging) and rarely act on the
+response-time hint unprompted, so scoped memories still missed their moment.
+
+- The exported managed section now enumerates the exact stored scope values of
+  the scoped memories it keeps out, with the instruction to call
+  `build_context` with that exact value when the task matches — every fresh
+  session learns the vocabulary at time zero, before any tool call.
+- Skill guidance updated to point hosts at the managed section's values and the
+  unmatched hint instead of invented labels.
+
 ## 0.4.0
 
 Read-path observability, driven by a week of real dogfooding: scoped memories

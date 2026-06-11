@@ -57,3 +57,62 @@ def test_all_scopes_export_inlines_everything(tmp_path):
     text = out.read_text(encoding="utf-8")
     assert "GLOBAL-ALWAYS-RELEVANT" in text
     assert "SCOPED-ONLY-FOR-BUGFIX" in text
+
+
+def test_default_export_lists_scoped_vocabulary(tmp_path):
+    """Zero-time vocabulary: a fresh session must learn the exact stored scope
+    values from its instruction file, before any tool call, so its FIRST
+    build_context can use the right key instead of an invented variant.
+    (Field data: hosts improvised ops-guidance/code-edit/debugging and the
+    response-time hint alone was not re-acted on without prompting.)"""
+    store = MemoryStore(str(tmp_path / "e.sqlite"))
+    _seed(store)
+    out = export_instruction_file(tmp_path / "CLAUDE.md", store.list(status="active"), target="claude")
+    text = out.read_text(encoding="utf-8")
+    assert "task_type: bug-fix" in text  # the exact stored key is on the wall
+    assert "exact value" in text  # and the instruction to reuse it verbatim
+
+
+def test_vocabulary_covers_every_scoped_dimension(tmp_path):
+    store = MemoryStore(str(tmp_path / "e.sqlite"))
+    _seed(store)
+    apply_drafts(
+        store,
+        [
+            MemoryDraft(
+                type="project_rule",
+                scope=Scope(level="project", project="acme-rocket"),
+                slot="review_policy",
+                content="SCOPED-ONLY-FOR-ACME",
+                rationale="r",
+                confidence=0.9,
+            )
+        ],
+        actor="test",
+    )
+    out = export_instruction_file(tmp_path / "CLAUDE.md", store.list(status="active"), target="claude")
+    text = out.read_text(encoding="utf-8")
+    assert "task_type: bug-fix" in text
+    assert "project: acme-rocket" in text
+
+
+def test_no_vocabulary_block_without_scoped_memories(tmp_path):
+    store = MemoryStore(str(tmp_path / "e.sqlite"))
+    apply_drafts(
+        store,
+        [
+            MemoryDraft(
+                type="preference",
+                scope=Scope(level="global"),
+                slot="answer_style",
+                content="GLOBAL-ALWAYS-RELEVANT",
+                rationale="r",
+                confidence=0.9,
+            )
+        ],
+        actor="test",
+    )
+    out = export_instruction_file(tmp_path / "CLAUDE.md", store.list(status="active"), target="claude")
+    text = out.read_text(encoding="utf-8")
+    assert "task_type:" not in text
+    assert "scoped" not in text

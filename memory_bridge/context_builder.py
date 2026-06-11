@@ -65,22 +65,27 @@ def scope_matches(scope: Scope, criteria: ContextCriteria) -> bool:
 SCOPE_DIMENSIONS = ("project", "tool", "task_type", "session_id", "product", "domain", "user_id")
 
 
-def available_scope_values(store: MemoryStore) -> Dict[str, List[str]]:
-    """Distinct non-null scope values across active memories, per dimension.
+def collect_scope_values(memories: Iterable[MemoryRecord]) -> Dict[str, List[str]]:
+    """Distinct non-null scope values per dimension, exact as stored.
 
-    The store is the only vocabulary source: a caller (or the host AI) that found
-    no match can reuse one of these exact values instead of inventing a variant
-    (e.g. 'bugfix' vs the stored 'bug-fix') that would miss the exact scope match.
-    No normalization is applied here; matching stays exact in scope_matches.
+    The store is the only vocabulary source: callers (and host AIs) reuse these
+    exact values instead of inventing a variant (e.g. 'bugfix' vs the stored
+    'bug-fix') that would miss the exact scope match. No normalization is
+    applied here; matching stays exact in scope_matches.
     """
     values: Dict[str, set] = {dim: set() for dim in SCOPE_DIMENSIONS}
-    for memory in store.list(status="active"):
+    for memory in memories:
         data = memory.scope.to_dict()
         for dim in SCOPE_DIMENSIONS:
             value = data.get(dim)
             if value:
                 values[dim].add(value)
     return {dim: sorted(found) for dim, found in values.items() if found}
+
+
+def available_scope_values(store: MemoryStore) -> Dict[str, List[str]]:
+    """Scope vocabulary across all active memories."""
+    return collect_scope_values(store.list(status="active"))
 
 
 def unmatched_scope_summary(
@@ -98,13 +103,7 @@ def unmatched_scope_summary(
         for memory in store.list(status="active")
         if not scope_matches(memory.scope, criteria)
     ]
-    values: Dict[str, set] = {}
-    for memory in unmatched:
-        data = memory.scope.to_dict()
-        for dim in SCOPE_DIMENSIONS:
-            if data.get(dim):
-                values.setdefault(dim, set()).add(data[dim])
-    return len(unmatched), {dim: sorted(found) for dim, found in values.items()}
+    return len(unmatched), collect_scope_values(unmatched)
 
 
 def _matching_sorted(store: MemoryStore, criteria: ContextCriteria) -> List[MemoryRecord]:

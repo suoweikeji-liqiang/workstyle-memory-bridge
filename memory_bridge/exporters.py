@@ -5,22 +5,34 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Iterable
 
-from .context_builder import build_context_markdown
+from .context_builder import build_context_markdown, collect_scope_values
 from .schemas import MemoryRecord
 
 BEGIN = "<!-- memory-bridge:begin -->"
 END = "<!-- memory-bridge:end -->"
 
 
-def managed_section(memories: Iterable[MemoryRecord], target: str, scoped_count: int = 0) -> str:
+def managed_section(
+    memories: Iterable[MemoryRecord], target: str, scoped: Iterable[MemoryRecord] = ()
+) -> str:
     title = "Claude Code" if target == "claude" else "Codex"
     body = build_context_markdown(memories)
+    scoped = list(scoped)
     note = ""
-    if scoped_count:
-        note = (
-            f"\n\n> {scoped_count} task/project/tool-scoped memory(ies) are kept out of this "
-            "always-on file to keep it small; they load on demand via `build_context`."
-        )
+    if scoped:
+        # Zero-time vocabulary: enumerate the exact stored scope values so a
+        # fresh session can label its FIRST build_context call correctly,
+        # instead of improvising a variant and relying on the response-time
+        # hint (which field data shows hosts rarely act on unprompted).
+        lines = [
+            f"> {len(scoped)} task/project/tool-scoped memory(ies) are kept out of this "
+            "always-on file to keep it small. They load on demand: when the current task "
+            "matches one of the stored scope values below, call `build_context` with that "
+            "exact value (scope matching is exact — never invent variants):",
+        ]
+        for dim, found in collect_scope_values(scoped).items():
+            lines.append(f"> - {dim}: {', '.join(found)}")
+        note = "\n\n" + "\n".join(lines)
     return f"""{BEGIN}
 # Workstyle Memory Bridge for {title}
 
@@ -61,14 +73,14 @@ def export_instruction_file(
     memories = list(memories)
     if global_only:
         inlined = [m for m in memories if m.scope.level == "global"]
-        scoped_count = len(memories) - len(inlined)
+        scoped = [m for m in memories if m.scope.level != "global"]
     else:
         inlined = memories
-        scoped_count = 0
+        scoped = []
     path = Path(path)
     existing = path.read_text(encoding="utf-8") if path.exists() else ""
     cleaned = strip_existing_section(existing)
-    section = managed_section(inlined, target=target, scoped_count=scoped_count)
+    section = managed_section(inlined, target=target, scoped=scoped)
     final = section if not cleaned else f"{section}\n\n{cleaned}"
     path.write_text(final + "\n", encoding="utf-8")
     return path

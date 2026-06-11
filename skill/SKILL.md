@@ -16,7 +16,7 @@ One feedback event should improve future collaboration across tools while remain
 - `view_memory`: show current memory state.
 - `remember_feedback`: convert feedback into structured memories and attach L0 evidence refs. Supports `dry_run` for propose-then-confirm.
 - `inspect_memory`: inspect a memory card, source evidence, and lifecycle.
-- `build_context`: return relevant active memories for a task.
+- `build_context`: return relevant active memories for a task. Scope matching is exact — reuse the stored scope values (the managed export section and the unmatched hint both list them) rather than inventing variants.
 - `edit_memory`: update a memory.
 - `delete_memory`: delete a memory so it stops being used.
 - `verify_deletion`: verify a deleted memory is absent from context and Claude/Codex projections.
