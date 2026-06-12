@@ -9,11 +9,8 @@
 前提：Python 3.11+，以及 Claude Code（或任意 MCP 客户端）。
 
 ```bash
-# 方式 A：用收到的 whl 文件
+# 用收到的 whl 文件安装（压缩包里就有，无需访问任何仓库）
 pip install workstyle_memory_bridge-0.6.2-py3-none-any.whl "mcp>=1.0.0"
-
-# 方式 B：直接装 GitHub 最新版
-pip install "workstyle-memory-bridge[mcp] @ git+https://github.com/suoweikeji-liqiang/workstyle-memory-bridge"
 ```
 
 接入 Claude Code：在项目根目录建（或编辑）`.mcp.json`：
@@ -64,4 +61,4 @@ memory-bridge export-diagnostic --output diagnostic.zip
 
 （导出前可自行检查，包里可能含你的反馈原文。）发给我即可。
 
-仓库：https://github.com/suoweikeji-liqiang/workstyle-memory-bridge
+> 仓库目前未公开，源码和最新版本开源后另行提供；现阶段一切以收到的 whl 包为准。
