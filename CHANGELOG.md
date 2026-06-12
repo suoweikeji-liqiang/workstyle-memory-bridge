@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.6.2
+
+Evaluation-readiness pass after auditing against the published WASC scoring
+rules (clean-room retest, 8-step continuous-use script, six dimensions).
+
+- Snapshot honesty: server instructions now declare themselves a session-start
+  snapshot with the store as authority for mid-session edits/deletions, and
+  `verify-deletion` reports disclose the one projection it cannot check
+  (instructions held by sessions opened before the deletion).
+- Demo script now demonstrates durable-vs-temporary discrimination: mixed
+  feedback yields a workflow memory plus a session-scoped `temporary` memory
+  that provably never reaches later task contexts.
+- SETUP.md rewritten judge-first: host-connected path (with `.mcp.json`
+  snippet) is primary, clean-room mode via `MEMORY_BRIDGE_DB`, judge-step to
+  MCP-tool mapping table, CLI repositioned as the inspection bench.
+- Added `skill/scripts/` wrapper matching the required submission structure.
+
 ## 0.6.1
 
 Memory routing ships with the server. Locally the anti-duplicate rule lived

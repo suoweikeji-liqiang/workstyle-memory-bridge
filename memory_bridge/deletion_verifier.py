@@ -15,6 +15,7 @@ class DeletionVerificationReport:
     memory_id: str
     checks: List[str] = field(default_factory=list)
     failures: List[str] = field(default_factory=list)
+    notes: List[str] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
@@ -26,10 +27,14 @@ class DeletionVerificationReport:
     def fail_check(self, message: str) -> None:
         self.failures.append(f"FAIL: {message}")
 
+    def note(self, message: str) -> None:
+        self.notes.append(f"NOTE: {message}")
+
     def text(self) -> str:
         lines = [f"Deletion verification for {self.memory_id}"]
         lines.extend(self.checks)
         lines.extend(self.failures)
+        lines.extend(self.notes)
         lines.append("Verification: PASS" if self.ok else "Verification: FAIL")
         return "\n".join(lines)
 
@@ -79,5 +84,16 @@ def verify_deleted_memory(
         report.pass_check("memory is absent from Codex export projection")
     else:
         report.fail_check("memory still appears in Codex export projection")
+
+    # Honest disclosure: one projection cannot be checked from here. MCP server
+    # instructions are computed at session start, so a session opened before
+    # this deletion still holds the old snapshot until its next handshake; the
+    # instructions text itself tells hosts the store is authoritative.
+    report.note(
+        "MCP server instructions are a session start snapshot: sessions opened "
+        "before this deletion may still carry the memory until their next "
+        "handshake. In-session, hosts are instructed to treat the store as "
+        "authoritative over the snapshot."
+    )
 
     return report

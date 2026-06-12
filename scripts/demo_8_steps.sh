@@ -17,9 +17,13 @@ echo 'Task: 帮我设计一个功能：给 develop_os 加一个 issue triage age
 echo 'Expected: no workstyle memory is available yet.'
 
 printf '\n[3] user feedback -> structured memory + L0 evidence event\n'
+echo 'The feedback mixes a DURABLE workflow preference with a one-off task detail'
+echo '(cc Zhang San on this plan). Extraction must separate them: the durable part'
+echo 'becomes a workflow memory; the one-off part is typed temporary with session'
+echo 'scope, so it can never leak into later tasks.'
 OUT1="$($MB ingest-feedback \
   --task-type technical_planning \
-  --feedback '以后给我技术方案时，先讲北极星和边界，再给 MVP，不要上来堆完整架构。风险要前置。输出控制在 6 段以内。' \
+  --feedback '以后给我技术方案时，先讲北极星和边界，再给 MVP，不要上来堆完整架构。风险要前置。输出控制在 6 段以内。对了，这份方案写完抄送一下张三。' \
   --memory-json '{
     "memories": [{
       "type": "workflow",
@@ -29,6 +33,14 @@ OUT1="$($MB ingest-feedback \
       "content": "技术方案应先讲北极星和边界，再给 MVP；避免一开始堆完整架构；风险前置；输出控制在 6 段以内。",
       "rationale": "用户明确给出后续技术方案的协作方式。",
       "confidence": 0.92
+    }, {
+      "type": "temporary",
+      "layer": "L1_atom",
+      "scope": {"level": "session", "session_id": "demo-session-1"},
+      "slot": "cc_zhangsan_this_plan",
+      "content": "本次方案完成后抄送张三（仅本次任务有效）。",
+      "rationale": "一次性任务信息，不是长期偏好。",
+      "confidence": 0.9
     }]
   }')"
 printf '%s\n' "$OUT1"
@@ -53,6 +65,8 @@ fi
 
 printf '\n[5] second task should use memory\n'
 echo 'Task: 帮我评估 Memory Bridge 要不要接入 Claude 和 Codex。'
+echo 'Note: the durable workflow memory applies below; the temporary cc-ZhangSan'
+echo 'item does NOT (session scope) -- one-off details never leak into new tasks.'
 $MB build-context --task-type technical_planning
 
 printf '\n[6] preference changes -> propose-then-confirm, then supersede\n'

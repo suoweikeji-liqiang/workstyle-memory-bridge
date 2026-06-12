@@ -69,6 +69,18 @@ def test_instructions_carry_memory_routing_rule(tmp_path):
     assert "native memory" in populated  # and stays present with content
 
 
+def test_instructions_declare_snapshot_semantics(tmp_path):
+    """The handshake text is a session-start snapshot; mid-session edits and
+    deletions land only in the store. Without an explicit authority rule, a
+    memory deleted mid-session keeps acting through the stale copy — breaking
+    the delete-then-retest guarantee."""
+    store = MemoryStore(str(tmp_path / "i.sqlite"))
+    _seed(store)
+    text = server_instructions(store.list(status="active"))
+    assert "snapshot" in text
+    assert "authoritative" in text
+
+
 def test_create_server_computes_instructions_from_live_store(tmp_path, monkeypatch):
     pytest.importorskip("mcp")
     db = str(tmp_path / "i.sqlite")

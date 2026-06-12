@@ -98,6 +98,10 @@ def server_instructions(memories: Iterable[MemoryRecord]) -> str:
         "instruction file, tell the user and propose consolidating it into this "
         "store (dry_run first; the user confirms). Native memory remains the "
         "right place for non-workstyle facts such as project notes and todos.",
+        "",
+        "These instructions are a snapshot taken when this session started. The "
+        "store is authoritative: if memories are edited or deleted during the "
+        "session, trust build_context / view_memory results over this static copy.",
     ]
     return "\n".join(lines)
 
