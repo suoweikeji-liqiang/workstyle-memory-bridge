@@ -5,7 +5,16 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DB="$ROOT/.demo/memory.sqlite"
 mkdir -p "$ROOT/.demo"
 
-MB="python -m memory_bridge.cli --db $DB"
+# Use python3 or the venv python if available
+if [ -f "$ROOT/.venv/bin/python3" ]; then
+  PYTHON="$ROOT/.venv/bin/python3"
+elif command -v python3 &> /dev/null; then
+  PYTHON="python3"
+else
+  PYTHON="python"
+fi
+
+MB="$PYTHON -m memory_bridge.cli --db $DB"
 
 cd "$ROOT"
 
