@@ -29,3 +29,11 @@ diagnostic*.zip
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Demo / local scratch
+.demo/
+
+# One-shot submission artifacts (not part of the open-source project)
+SUBMISSION_*.md
+workstyle_skill_attachment.zip
+打磨报告.md
