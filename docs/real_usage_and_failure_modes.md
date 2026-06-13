@@ -11,13 +11,13 @@
 
 | 时间 | 触发场景 | 对应 commit | 改了什么 |
 |---|---|---|---|
-| 2026-06-04 | Claude Code 接 MCP 后，`remember_feedback` 既不接受 object 也不接受 string 形式的 memory_json，host 被迫退回 native memory | [`954a411`](https://github.com/your-username/workstyle-memory-bridge/commit/954a411) | `memory_json` 改成 `Optional[Union[str, dict]]`，server-side 归一化。**Verified over real MCP stdio with both forms** |
-| 2026-06-04 | host 在 build_context 时把 `task_type=bug-fix` 写成 `bugfix`，scope 精确匹配导致最高权重的应用路径静默失败 | [`c620d67`](https://github.com/your-username/workstyle-memory-bridge/commit/c620d67) | build_context miss 时返回 `available_scope_values`，让 host 对齐到 store 实际值 |
-| 2026-06-04 | host 直接传 memory_json 绕过 extraction prompt，导致写端也会漂移（bug-fix vs bugfix） | [`ca0c660`](https://github.com/your-username/workstyle-memory-bridge/commit/ca0c660) | dry-run preview 列出已用 scope values，让 model 在 commit 前复用精确值 |
-| 2026-06-10 | **一周真实使用发现**：scoped memories 永远不命中——因为 globals 匹配每个调用，response 看起来成功，task_type-scoped 记忆静默不可达 | [`eef0401`](https://github.com/your-username/workstyle-memory-bridge/commit/eef0401) | build_context response 列出未命中 scoped memories + 新增 `context_requests` 审计表 |
-| 2026-06-11 | **现场数据**：host 第一次调 build_context 时即兴造 task_type 标签（ops-guidance / code-edit / debugging），不响应响应时的提示重新调一次 | [`55204c5`](https://github.com/your-username/workstyle-memory-bridge/commit/55204c5) | always-on export 段枚举精确 stored scope values，让 fresh session 第一次就知道词汇表 |
-| 2026-06-11 | 用户问"加载 MCP 不就带这个了吗"——三轮 export-side 补丁后才发现握手 instructions 才是协议原生机制 | [`13d013b`](https://github.com/your-username/workstyle-memory-bridge/commit/13d013b) | server instructions 在握手时计算并下发，零时上下文，新装客户端开箱即用 |
-| 2026-06-11 | 本地一个用户的 CLAUDE.md 里手写了 anti-duplicate 规则；分布式用户没这规则，会导致 host native memory 和此 store 双写，drift 后破坏 verify-deletion | [`863f473`](https://github.com/your-username/workstyle-memory-bridge/commit/863f473) | 记忆路由规则随 MCP handshake instructions 下发，每个 host 都收到 |
+| 2026-06-04 | Claude Code 接 MCP 后，`remember_feedback` 既不接受 object 也不接受 string 形式的 memory_json，host 被迫退回 native memory | [`954a411`](https://github.com/suoweikeji-liqiang/workstyle-memory-bridge/commit/954a411) | `memory_json` 改成 `Optional[Union[str, dict]]`，server-side 归一化。**Verified over real MCP stdio with both forms** |
+| 2026-06-04 | host 在 build_context 时把 `task_type=bug-fix` 写成 `bugfix`，scope 精确匹配导致最高权重的应用路径静默失败 | [`c620d67`](https://github.com/suoweikeji-liqiang/workstyle-memory-bridge/commit/c620d67) | build_context miss 时返回 `available_scope_values`，让 host 对齐到 store 实际值 |
+| 2026-06-04 | host 直接传 memory_json 绕过 extraction prompt，导致写端也会漂移（bug-fix vs bugfix） | [`ca0c660`](https://github.com/suoweikeji-liqiang/workstyle-memory-bridge/commit/ca0c660) | dry-run preview 列出已用 scope values，让 model 在 commit 前复用精确值 |
+| 2026-06-10 | **一周真实使用发现**：scoped memories 永远不命中——因为 globals 匹配每个调用，response 看起来成功，task_type-scoped 记忆静默不可达 | [`eef0401`](https://github.com/suoweikeji-liqiang/workstyle-memory-bridge/commit/eef0401) | build_context response 列出未命中 scoped memories + 新增 `context_requests` 审计表 |
+| 2026-06-11 | **现场数据**：host 第一次调 build_context 时即兴造 task_type 标签（ops-guidance / code-edit / debugging），不响应响应时的提示重新调一次 | [`55204c5`](https://github.com/suoweikeji-liqiang/workstyle-memory-bridge/commit/55204c5) | always-on export 段枚举精确 stored scope values，让 fresh session 第一次就知道词汇表 |
+| 2026-06-11 | 用户问"加载 MCP 不就带这个了吗"——三轮 export-side 补丁后才发现握手 instructions 才是协议原生机制 | [`13d013b`](https://github.com/suoweikeji-liqiang/workstyle-memory-bridge/commit/13d013b) | server instructions 在握手时计算并下发，零时上下文，新装客户端开箱即用 |
+| 2026-06-11 | 本地一个用户的 CLAUDE.md 里手写了 anti-duplicate 规则；分布式用户没这规则，会导致 host native memory 和此 store 双写，drift 后破坏 verify-deletion | [`863f473`](https://github.com/suoweikeji-liqiang/workstyle-memory-bridge/commit/863f473) | 记忆路由规则随 MCP handshake instructions 下发，每个 host 都收到 |
 
 ---
 
