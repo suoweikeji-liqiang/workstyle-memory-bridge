@@ -343,7 +343,7 @@ workstyle-memory-bridge/
 
 ## License
 
-MIT License. See [LICENSE](LICENSE) for details.
+MIT-0 License. See [LICENSE](LICENSE) for details.
 
 ## Contributing
 
