@@ -58,10 +58,19 @@ Recommended tools:
 - `reset_memory`
 - `view_memory`
 - `remember_feedback`
+- `inspect_memory`
 - `build_context`
+- `why_used`
+- `memory_doctor`
 - `edit_memory`
 - `delete_memory`
+- `verify_deletion`
 - `export_instructions`
+
+Use `why_used` when a single task's recall result looks surprising. It explains
+the most recent (or selected) `build_context` request using the same store data:
+scope match reason, returned memory order, and structured rank signals. Use
+`memory_doctor` for aggregate recall-health facts across many requests.
 
 ## Product embedding
 

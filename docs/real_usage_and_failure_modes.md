@@ -18,6 +18,7 @@
 | 2026-06-11 | **现场数据**：host 第一次调 build_context 时即兴造 task_type 标签（ops-guidance / code-edit / debugging），不响应响应时的提示重新调一次 | [`55204c5`](https://github.com/suoweikeji-liqiang/workstyle-memory-bridge/commit/55204c5) | always-on export 段枚举精确 stored scope values，让 fresh session 第一次就知道词汇表 |
 | 2026-06-11 | 用户问"加载 MCP 不就带这个了吗"——三轮 export-side 补丁后才发现握手 instructions 才是协议原生机制 | [`13d013b`](https://github.com/suoweikeji-liqiang/workstyle-memory-bridge/commit/13d013b) | server instructions 在握手时计算并下发，零时上下文，新装客户端开箱即用 |
 | 2026-06-11 | 本地一个用户的 CLAUDE.md 里手写了 anti-duplicate 规则；分布式用户没这规则，会导致 host native memory 和此 store 双写，drift 后破坏 verify-deletion | [`863f473`](https://github.com/suoweikeji-liqiang/workstyle-memory-bridge/commit/863f473) | 记忆路由规则随 MCP handshake instructions 下发，每个 host 都收到 |
+| 2026-06-26 | 自用时发现"召回了，但为什么是这些、为什么这个顺序"仍要翻日志和代码；普通 preference 也可能挤占更像硬约束的记忆 | [`7b220fc`](https://github.com/suoweikeji-liqiang/workstyle-memory-bridge/commit/7b220fc) | `build_context` 改为结构化 JIT 排序；新增 `why-used` / `why_used` 解释单次召回的 scope 命中和排序信号 |
 
 ---
 
@@ -35,12 +36,14 @@
 | 6 | **duplicates 漂移 + 跨删除存活，破坏 verify-deletion** | MCP handshake instructions 下发"工作方式偏好只入此 store，禁止重复进 native memory" | `inspect` 看记忆卡片；`verify-deletion` 跨投影检查 |
 | 7 | **scoped memories 从未被返回** | doctor recall health 报告：哪些 scoped 记忆有机会却从未被返回 / 哪些请求的 scope 值无匹配 | `doctor` 命令 / `memory_doctor` MCP 工具 |
 | 8 | **临时任务信息混进长期偏好** | demo 演示 durable (workflow) + temporary (session-scoped) 分离；temporary 永不进入后续任务上下文 | `view` 看 type/scope；`inspect` 看 lifecycle |
+| 9 | **单次召回结果不可解释** | `why-used` 读取最新/指定 `context_requests`，列出返回记忆、scope 命中原因、排序信号、当前仍不可达的 scoped values | `why-used` 命令 / `why_used` MCP 工具 |
+| 10 | **普通记忆挤占行动约束** | 只用结构化 metadata 做 JIT 排序：L2、scope specificity、type priority、confidence、轻量 usage balance、recency；不看 content、不做关键词规则 | `why-used` 里的 `rank signals` |
 
 ---
 
 ## 三、Claude Code / Codex 集成验证状态
 
-- **Claude Code**：通过 `.mcp.json` 配置接通，所有 MCP 工具（reset_memory / view_memory / remember_feedback / inspect_memory / build_context / edit_memory / delete_memory / verify_deletion / memory_doctor）可用。`954a411` 已验证 stdio 双向传参。
+- **Claude Code**：通过 `.mcp.json` 配置接通，所有 MCP 工具（reset_memory / view_memory / remember_feedback / inspect_memory / build_context / why_used / edit_memory / delete_memory / verify_deletion / memory_doctor）可用。`954a411` 已验证 stdio 双向传参。
 - **Codex**：通过 `codex mcp add workstyle-memory -- python -m memory_bridge.mcp_server` 注册，同一 store 共享。
 - **MCP server instructions**：握手时下发全局记忆 + scope 词汇表 + 记忆路由规则 + 快照语义声明（`13d013b`、`863f473`、`a4a7e21`）。
 

@@ -254,7 +254,10 @@ memory-bridge delete <memory_id>
 - 握手时自动获取全局记忆和 scope 词汇表
 - 运行时调用 `build_context` 获取相关记忆
 - 自动提取用户反馈并调用 `remember_feedback`
-- 查询召回日志 `memory_doctor` 诊断问题
+- 调用 `why_used` 解释单次召回结果
+- 查询召回日志，用 `memory_doctor` 诊断长期问题
+
+召回排序只使用结构化 metadata：L2 新鲜度、scope 精确度、memory type、confidence、轻量 usage balance、recency。它不会读取记忆正文做关键词匹配。
 
 ### 文件导出（备用）
 

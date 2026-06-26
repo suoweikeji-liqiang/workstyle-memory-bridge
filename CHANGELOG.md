@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+Recall results are now easier to understand and less likely to hide action
+constraints behind softer preferences.
+
+- `build_context` uses structured JIT ranking: fresh L2 scenarios, scope
+  specificity, memory type priority, confidence, light usage balancing, then
+  recency. It still does not inspect content text or use keyword matching.
+- Added CLI command `why-used` and MCP tool `why_used` to explain a latest or
+  selected context request: scope match reason, returned memory order,
+  structured rank signals, and still-unreachable scoped values.
+- README, setup, trial, integration, and failure-mode docs describe the new
+  recall-debugging path.
+
 ## 0.6.2
 
 Evaluation-readiness pass after auditing against the published WASC scoring

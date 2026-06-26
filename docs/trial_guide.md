@@ -35,7 +35,8 @@ pip install workstyle_memory_bridge-0.6.2-py3-none-any.whl "mcp>=1.0.0"
 3. **验效果**：新开会话，让它随便写个方案——看它是否不用提醒就先给结论。
 4. **改主意**：再说——"调整一下，只有写周报时才需要那么简洁。" 旧记忆会被**替换**而不是叠加（`view --status superseded` 能看到旧版留档）。
 5. **删干净**：`memory-bridge delete <id>`，然后 `memory-bridge verify-deletion <id>`——六项检查逐项证明它真的不再生效。
-6. **没生效？**：`memory-bridge doctor`——它会告诉你为什么（比如记忆的适用范围和实际任务对不上），而不用你猜。
+6. **这次为什么这样生效？**：`memory-bridge why-used`——解释最新一次召回用了哪些记忆、scope 怎么命中、排序信号是什么。
+7. **经常没生效？**：`memory-bridge doctor`——它会告诉你长期召回健康问题（比如记忆的适用范围和实际任务对不上），而不用你猜。
 
 ## 常用命令速查
 
@@ -43,6 +44,7 @@ pip install workstyle_memory_bridge-0.6.2-py3-none-any.whl "mcp>=1.0.0"
 memory-bridge view              # 现在记了什么
 memory-bridge inspect <id>      # 单条记忆：内容 + 证据 + 生命周期
 memory-bridge context-log       # 每次记忆被取用的审计记录
+memory-bridge why-used          # 最新一次召回为什么用了这些记忆
 memory-bridge doctor            # 健康检查：死记忆、叫错名的调用
 memory-bridge reset             # 全部清空，从零开始
 ```

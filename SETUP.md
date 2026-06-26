@@ -7,8 +7,9 @@ Two ways to run Workstyle Memory Bridge — pick by what you want to see:
   extracts preferences from your feedback, recalls scoped memories at task
   start, and applies them to real tasks. Memory *application* — the thing
   that matters — is only observable on this path.
-- **CLI (inspection bench).** `view` / `inspect` / `context-log` / `doctor` /
-  `verify-deletion` show what is stored and when it was recalled, and prove
+- **CLI (inspection bench).** `view` / `inspect` / `context-log` / `why-used` /
+  `doctor` / `verify-deletion` show what is stored, when it was recalled, why
+  a specific recall returned what it did, and prove
   deletion. The
   bare CLI does **not** extract memories by itself: there is deliberately no
   built-in extractor (see `policies/no_heuristic_extraction.md`), so
@@ -85,7 +86,8 @@ map 1:1 to the judge script:
 | 再次任务 | host calls `build_context` with the task's scope |
 | 偏好变化 | `remember_feedback` with same slot+scope → supersede |
 | 删除后复测 | `delete_memory` + `verify_deletion` |
-| 为什么没生效 | `memory_doctor` |
+| 这次为什么用了这些记忆 | `why_used` |
+| 为什么经常没生效 | `memory_doctor` |
 
 ## 5. CLI inspection bench
 
@@ -93,6 +95,7 @@ map 1:1 to the judge script:
 memory-bridge view [--status all]
 memory-bridge inspect <memory_id>        # memory card + evidence + lifecycle
 memory-bridge context-log                # read-path audit: who asked, what matched
+memory-bridge why-used                   # latest recall: scope reason + rank signals
 memory-bridge doctor                     # lifecycle + recall health
 memory-bridge verify-deletion <memory_id> --task-type <value>
 memory-bridge export claude --path <CLAUDE.md>   # optional always-on wall

@@ -32,6 +32,7 @@ workstyle preference in both places.
 - `remember_feedback`: convert feedback into structured memories and attach L0 evidence refs. Supports `dry_run` for propose-then-confirm.
 - `inspect_memory`: inspect a memory card, source evidence, and lifecycle.
 - `build_context`: return relevant active memories for a task. Scope matching is exact — reuse the stored scope values (the managed export section and the unmatched hint both list them) rather than inventing variants.
+- `why_used`: explain the latest or selected `build_context` result: which memories were returned, why their scopes matched, and which structured ranking signals ordered them.
 - `build_scenario`: assemble a lightweight L2 scenario playbook from matching active L1 memories. Call first without `scenario_json` to get source memories and a prompt; then generate JSON, preview with `dry_run=True`, show the user, and commit only after confirmation.
 - `scenario_status`: report whether L2 scenario playbooks are fresh or stale against their source L1 memories.
 - `edit_memory`: update a memory.
@@ -110,6 +111,19 @@ source:
 Fresh L2 scenarios are preferred by `build_context`, and their covered L1 atoms
 are not repeated. If any source L1 changes, is superseded, or is deleted, the L2
 becomes stale and `build_context` falls back to the L1 records.
+
+## Read-path ranking and debugging
+
+`build_context` ranks matching memories using structured metadata only:
+fresh L2 scenarios first, then scope specificity, memory type priority,
+confidence, a light usage-count balance, and recency. It must not inspect
+memory content or use keyword rules to decide relevance.
+
+When a memory seems missing or the ordering feels surprising:
+
+1. Call `why_used` to explain the latest `build_context` result.
+2. Check whether scoped values were omitted or drifted from stored values.
+3. Use `memory_doctor` for aggregate recall-health facts across many requests.
 
 ## Memory types
 
