@@ -23,6 +23,13 @@ from .doctor import run_doctor
 from .exporters import export_instruction_file, server_instructions
 from .extractor import ExtractorUnavailable, existing_memory_digest, extract_from_feedback
 from .resolver import apply_drafts, preview_drafts
+from .scenario import (
+    prepare_scenario_drafts,
+    scenario_prompt,
+    scenario_source_ids,
+    scenario_status as scenario_memory_status,
+    select_l1_sources,
+)
 from .schemas import CreatedFrom, Scope
 from .store import MemoryStore
 
@@ -247,8 +254,18 @@ def create_server():
             event = store.get_evidence(ref.id)
             evidence.append(event.to_dict() if event else ref.to_dict())
         lifecycle = [event for event in store.events(limit=1000) if event.get("memory_id") == memory_id]
+        scenario_status = (
+            scenario_memory_status(store, memory).to_dict()
+            if memory.layer == "L2_scenario"
+            else None
+        )
         return json.dumps(
-            {"memory": memory.to_dict(), "evidence": evidence, "lifecycle": lifecycle},
+            {
+                "memory": memory.to_dict(),
+                "evidence": evidence,
+                "lifecycle": lifecycle,
+                "scenario_status": scenario_status,
+            },
             ensure_ascii=False,
             indent=2,
         )
@@ -285,6 +302,133 @@ def create_server():
             ),
             limit=limit,
             actor="mcp",
+        )
+
+    @mcp.tool()
+    def build_scenario(
+        scenario_json: Optional[Union[str, Dict[str, Any]]] = None,
+        project: Optional[str] = None,
+        tool: Optional[str] = None,
+        task_type: Optional[str] = None,
+        session_id: Optional[str] = None,
+        product: Optional[str] = None,
+        domain: Optional[str] = None,
+        user_id: Optional[str] = None,
+        source_limit: int = 12,
+        dry_run: bool = True,
+    ) -> str:
+        """Create or preview an L2 scenario playbook from matching active L1 memories.
+
+        YOU are the scenario assembler. First call without `scenario_json` to
+        get the exact source L1 memories and a model-ready prompt. Then generate
+        one L2_scenario JSON memory and call again with dry_run=True. Show the
+        preview to the user; commit with dry_run=False only after confirmation.
+
+        The server does not summarize L1 memories itself and never uses keyword
+        rules. It only validates the draft, attaches source_memory_refs and L0
+        evidence refs, and later marks the scenario stale if a source L1 changes
+        or is deleted.
+        """
+        store = _store()
+        criteria = _criteria(
+            project=project,
+            tool=tool,
+            task_type=task_type,
+            session_id=session_id,
+            product=product,
+            domain=domain,
+            user_id=user_id,
+        )
+        sources = select_l1_sources(store, criteria, limit=source_limit)
+        if not sources:
+            return json.dumps(
+                {
+                    "status": "no_sources",
+                    "message": "No matching active L1 memories found for this scope.",
+                    "criteria": criteria.to_dict(),
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+
+        if scenario_json is None:
+            return json.dumps(
+                {
+                    "status": "needs_scenario_json",
+                    "message": (
+                        "Assemble one L2_scenario memory from the source memories, "
+                        "then call build_scenario again with scenario_json. Do not "
+                        "add new preferences that are not in the sources."
+                    ),
+                    "criteria": criteria.to_dict(),
+                    "source_memories": [source.to_dict() for source in sources],
+                    "scenario_prompt": scenario_prompt(sources, criteria),
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+
+        payload = json.loads(scenario_json) if isinstance(scenario_json, str) else scenario_json
+        if dry_run:
+            drafts = prepare_scenario_drafts(payload, sources, criteria)
+            preview = preview_drafts(store, drafts)
+            return json.dumps(
+                {
+                    "dry_run": True,
+                    "previews": [
+                        {
+                            "proposed": item.draft.to_dict(),
+                            "would_supersede": [old.to_dict() for old in item.would_supersede],
+                        }
+                        for item in preview.previews
+                    ],
+                    "source_memory_ids": [source.id for source in sources],
+                    "hint": "Show this preview to the user and commit only after confirmation.",
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+
+        source_ids = [source.id for source in sources]
+        evidence = store.create_evidence(
+            "manual_note",
+            "L2 scenario playbook accepted from active L1 memories: " + ", ".join(source_ids),
+            metadata={**criteria.to_dict(), "source_memory_ids": source_ids},
+        )
+        drafts = prepare_scenario_drafts(
+            payload,
+            sources,
+            criteria,
+            evidence_ref=store.evidence_ref_for(evidence),
+        )
+        result = apply_drafts(store, drafts, actor="mcp")
+        return json.dumps(
+            {
+                "inserted": [m.to_dict() for m in result.inserted],
+                "superseded": [m.to_dict() for m in result.superseded],
+                "source_memory_ids": {
+                    memory.id: scenario_source_ids(memory) for memory in result.inserted
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+
+    @mcp.tool()
+    def scenario_status(memory_id: Optional[str] = None) -> str:
+        """Report whether L2 scenarios are fresh or stale against their source L1 memories."""
+        store = _store()
+        if memory_id:
+            records = [store.get(memory_id)]
+        else:
+            records = [m for m in store.list(status="active") if m.layer == "L2_scenario"]
+        found = [record for record in records if record is not None]
+        if not found:
+            return "No scenario memories found."
+        return json.dumps(
+            [scenario_memory_status(store, record).to_dict() for record in found],
+            ensure_ascii=False,
+            indent=2,
         )
 
     @mcp.tool()

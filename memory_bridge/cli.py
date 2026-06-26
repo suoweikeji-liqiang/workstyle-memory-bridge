@@ -23,6 +23,14 @@ from .extractor import (
     load_json_argument,
 )
 from .resolver import PreviewResult, apply_drafts, preview_drafts
+from .scenario import (
+    load_scenario_json,
+    prepare_scenario_drafts,
+    scenario_prompt,
+    scenario_source_ids,
+    scenario_status,
+    select_l1_sources,
+)
 from .schemas import CreatedFrom, Scope, ValidationError
 from .store import MemoryStore
 
@@ -201,6 +209,20 @@ def cmd_inspect(args: argparse.Namespace) -> int:
     else:
         lines.append("- No evidence refs attached.")
 
+    if memory.layer == "L2_scenario":
+        status = scenario_status(store, memory)
+        lines.extend(["", "Scenario Sources", "----------------"])
+        lines.append(f"Fresh: {'yes' if status.fresh else 'no'}")
+        if status.source_refs:
+            for ref in status.source_refs:
+                lines.append(f"- {ref.id} @ {ref.updated_at} ({ref.status})")
+        else:
+            lines.append("- No source L1 refs recorded.")
+        if status.reasons:
+            lines.append("Stale reasons:")
+            for reason in status.reasons:
+                lines.append(f"- {reason}")
+
     lifecycle = [event for event in store.events(limit=1000) if event.get("memory_id") == memory.id]
     lines.extend(["", "Lifecycle", "---------"])
     if lifecycle:
@@ -220,6 +242,77 @@ def cmd_build_context(args: argparse.Namespace) -> int:
         )
     )
     return 0
+
+
+def cmd_build_scenario(args: argparse.Namespace) -> int:
+    store = _store(args)
+    criteria = _criteria(args)
+    sources = select_l1_sources(store, criteria, limit=args.source_limit)
+    if not sources:
+        print("No matching active L1 memories found for this scope.", file=sys.stderr)
+        return 1
+
+    if not args.scenario_json:
+        print(
+            "No --scenario-json provided. Send this prompt to a model, review the JSON, "
+            "then rerun build-scenario with --scenario-json:",
+            file=sys.stderr,
+        )
+        print("\n--- L2 scenario prompt ---\n", file=sys.stderr)
+        print(scenario_prompt(sources, criteria), file=sys.stderr)
+        return 2
+
+    payload = load_scenario_json(args.scenario_json)
+    if args.dry_run:
+        drafts = prepare_scenario_drafts(payload, sources, criteria)
+        _print_preview(preview_drafts(store, drafts))
+        print("Source L1 memories:")
+        for source in sources:
+            print(f"- {source.id}: {source.slot} ({source.scope.key()})")
+        return 0
+
+    source_ids = [source.id for source in sources]
+    evidence = store.create_evidence(
+        kind="manual_note",
+        text=(
+            "L2 scenario playbook accepted from active L1 memories: "
+            + ", ".join(source_ids)
+        ),
+        metadata={**criteria.to_dict(), "source_memory_ids": source_ids},
+    )
+    drafts = prepare_scenario_drafts(
+        payload,
+        sources,
+        criteria,
+        evidence_ref=store.evidence_ref_for(evidence),
+    )
+    result = apply_drafts(store, drafts, actor="cli")
+    print(f"Inserted: {len(result.inserted)}")
+    print(f"Superseded: {len(result.superseded)}")
+    for memory in result.inserted:
+        print(f"- {memory.id}: {memory.slot}")
+        print(f"  layer: {memory.layer}")
+        print(f"  sources: {', '.join(scenario_source_ids(memory))}")
+        print(f"  evidence: {memory.source_event_id or '-'}")
+    return 0
+
+
+def cmd_scenario_status(args: argparse.Namespace) -> int:
+    store = _store(args)
+    if args.memory_id:
+        memories = [store.get(args.memory_id)]
+    else:
+        memories = [m for m in store.list(status="active") if m.layer == "L2_scenario"]
+    found = [memory for memory in memories if memory is not None]
+    if not found:
+        print("No scenario memories found.", file=sys.stderr)
+        return 1
+    reports = [scenario_status(store, memory) for memory in found]
+    if args.format == "json":
+        print(json.dumps([report.to_dict() for report in reports], ensure_ascii=False, indent=2))
+    else:
+        print("\n\n".join(report.text() for report in reports))
+    return 0 if all(report.fresh for report in reports) else 1
 
 
 def cmd_context_log(args: argparse.Namespace) -> int:
@@ -359,6 +452,22 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--limit", type=int, default=12)
     p.add_argument("--format", default="markdown", choices=["markdown", "json"])
     p.set_defaults(func=cmd_build_context)
+
+    p = sub.add_parser("build-scenario")
+    add_scope_args(p)
+    p.add_argument("--source-limit", type=int, default=12)
+    p.add_argument("--scenario-json", help="Structured L2 memory JSON string, or @path")
+    p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Preview the L2 scenario and what it would supersede, without writing",
+    )
+    p.set_defaults(func=cmd_build_scenario)
+
+    p = sub.add_parser("scenario-status")
+    p.add_argument("memory_id", nargs="?")
+    p.add_argument("--format", default="text", choices=["text", "json"])
+    p.set_defaults(func=cmd_scenario_status)
 
     p = sub.add_parser("delete")
     p.add_argument("memory_id")

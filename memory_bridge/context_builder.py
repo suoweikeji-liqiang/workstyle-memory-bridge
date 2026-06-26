@@ -110,10 +110,45 @@ def _matching_sorted(store: MemoryStore, criteria: ContextCriteria) -> List[Memo
     active = store.list(status="active")
     matched = [memory for memory in active if scope_matches(memory.scope, criteria)]
     matched.sort(
-        key=lambda m: (m.scope.specificity(), m.confidence, m.valid_from),
+        key=lambda m: (
+            1 if m.layer == "L2_scenario" else 0,
+            m.scope.specificity(),
+            m.confidence,
+            m.valid_from,
+        ),
         reverse=True,
     )
     return matched
+
+
+def _compose_context_records(store: MemoryStore, matched: List[MemoryRecord]) -> List[MemoryRecord]:
+    """Prefer fresh L2 scenarios, then include uncovered lower-level memories."""
+    from .scenario import scenario_source_ids, scenario_status
+
+    fresh_scenarios: List[MemoryRecord] = []
+    stale_scenario_ids = set()
+    for memory in matched:
+        if memory.layer != "L2_scenario":
+            continue
+        status = scenario_status(store, memory)
+        if status.fresh:
+            fresh_scenarios.append(memory)
+        else:
+            stale_scenario_ids.add(memory.id)
+
+    covered_l1_ids = {
+        source_id
+        for scenario in fresh_scenarios
+        for source_id in scenario_source_ids(scenario)
+    }
+    selected: List[MemoryRecord] = []
+    for memory in matched:
+        if memory.id in stale_scenario_ids:
+            continue
+        if memory.id in covered_l1_ids:
+            continue
+        selected.append(memory)
+    return selected
 
 
 def select_memories_with_total(
@@ -125,7 +160,7 @@ def select_memories_with_total(
     limit cap, so callers can report how many relevant memories were not shown
     instead of truncating silently.
     """
-    matched = _matching_sorted(store, criteria)
+    matched = _compose_context_records(store, _matching_sorted(store, criteria))
     selected = matched[:limit]
     store.mark_used(selected)
     return selected, len(matched)
@@ -163,7 +198,15 @@ def build_context_markdown(
         "",
     ]
     for memory in memories:
-        lines.append(f"- ({memory.type}, scope={memory.scope.key()}, slot={memory.slot}) {memory.content}")
+        if memory.layer == "L2_scenario":
+            lines.append(f"## Scenario Playbook: {memory.slot}")
+            lines.append(f"- type: {memory.type}")
+            lines.append(f"- scope: {memory.scope.key()}")
+            lines.append("")
+            lines.append(memory.content)
+            lines.append("")
+        else:
+            lines.append(f"- ({memory.type}, scope={memory.scope.key()}, slot={memory.slot}) {memory.content}")
     if truncated_count > 0:
         lines.append("")
         lines.append(

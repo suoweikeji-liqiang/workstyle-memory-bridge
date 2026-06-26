@@ -1,3 +1,8 @@
+---
+name: workstyle-memory-bridge
+description: Traceable Workstyle Memory Governance for Claude Code, Codex, MCP clients, and provider-switched local agent setups. Use when the user explicitly asks to remember, inspect, edit, delete, verify, export, or apply durable AI collaboration/workstyle preferences; also use when explicit feedback should become governed, source-backed workstyle memory. Do not use for generic personal facts, project task tracking, session handoff summaries, or broad user profiles.
+---
+
 # Workstyle Memory Governance Skill
 
 ## What it does
@@ -14,6 +19,12 @@ One feedback event should improve future collaboration across tools while remain
 
 Durable workstyle preferences belong in this store only — hosts must not duplicate them into their own native memory (duplicates drift on edits and survive deletion, breaking the verify-deletion guarantee). Duplicates found in native memory or instruction files are surfaced to the user with a consolidation proposal (dry-run, user confirms). Native memory remains the right place for non-workstyle facts such as project notes and todos. This rule ships in the MCP server instructions, so every host receives it at the handshake.
 
+If `user-profile-keeper` or another profile skill is installed, use this split:
+workstyle/collaboration preferences that should directly change future agent
+behavior go to Memory Bridge; user background, private profile facts, and
+clarification-only summaries stay in the profile system. Do not store the same
+workstyle preference in both places.
+
 ## Tools
 
 - `reset_memory`: clear all memories and evidence events for reproducible testing.
@@ -21,6 +32,8 @@ Durable workstyle preferences belong in this store only — hosts must not dupli
 - `remember_feedback`: convert feedback into structured memories and attach L0 evidence refs. Supports `dry_run` for propose-then-confirm.
 - `inspect_memory`: inspect a memory card, source evidence, and lifecycle.
 - `build_context`: return relevant active memories for a task. Scope matching is exact — reuse the stored scope values (the managed export section and the unmatched hint both list them) rather than inventing variants.
+- `build_scenario`: assemble a lightweight L2 scenario playbook from matching active L1 memories. Call first without `scenario_json` to get source memories and a prompt; then generate JSON, preview with `dry_run=True`, show the user, and commit only after confirmation.
+- `scenario_status`: report whether L2 scenario playbooks are fresh or stale against their source L1 memories.
 - `edit_memory`: update a memory.
 - `memory_doctor`: lifecycle + recall health report (dead scoped memories, requested scope values that matched nothing). Facts only — the host AI judges semantics and proposes governed fixes for the user to confirm.
 - `delete_memory`: delete a memory so it stops being used.
@@ -80,6 +93,24 @@ Every write stays reversible via `delete_memory` + `verify_deletion`, so a wrong
 capture is cheap to undo. Prefer one proposed memory at a time: dry-run previews
 each draft against the current store, not against other drafts in the same batch.
 
+## L2 scenario playbooks
+
+Use L2 only when a task type or scenario has multiple active L1 memories and the
+raw atom list is getting noisy. L2 is a convenience layer, not a new memory
+source:
+
+1. Call `build_scenario` with the exact scope (for example
+   `task_type="technical_planning"`) and no `scenario_json`.
+2. Assemble one `L2_scenario` JSON memory from the returned source L1 records.
+   Do not add preferences that are not present in the sources.
+3. Call `build_scenario(..., scenario_json=..., dry_run=True)`.
+4. Show the preview and supersede effect to the user.
+5. Commit with `dry_run=False` only after confirmation.
+
+Fresh L2 scenarios are preferred by `build_context`, and their covered L1 atoms
+are not repeated. If any source L1 changes, is superseded, or is deleted, the L2
+becomes stale and `build_context` falls back to the L1 records.
+
 ## Memory types
 
 - `preference`: stable user preference.
@@ -93,10 +124,10 @@ each draft against the current store, not against other drafts in the same batch
 
 - `L0_event`: original user feedback, correction, or task fragment.
 - `L1_atom`: one governed workstyle memory.
-- `L2_scenario`: scenario/task-type workflow pattern.
-- `L3_profile`: broad user/team collaboration profile.
+- `L2_scenario`: scenario/task-type workflow playbook assembled from source L1 memories.
+- `L3_profile`: broad user/team collaboration profile; not a default MVP behavior driver.
 
-MVP focuses on L0 evidence events and L1 atoms. L2/L3 must be model-backed or user-confirmed, never heuristic-generated.
+MVP focuses on L0 evidence events, L1 atoms, and lightweight L2 scenarios assembled from confirmed L1 memories. L3 remains a boundary marker and must not become broad user profiling. L2/L3 must be model-backed or user-confirmed, never heuristic-generated.
 
 ## Memory lifecycle
 

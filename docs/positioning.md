@@ -83,10 +83,12 @@ v0.3 adds a lightweight Workstyle L0-L3 framing:
 |---|---|
 | L0_event | original user feedback, correction, or task fragment |
 | L1_atom | one governed workstyle memory |
-| L2_scenario | a task/scenario-level workstyle pattern |
-| L3_profile | broad user/team collaboration profile |
+| L2_scenario | a user-confirmed scenario playbook assembled from source L1 memories |
+| L3_profile | broad user/team collaboration profile; not a default MVP behavior driver |
 
-The MVP implements L0 evidence events and L1 atoms. Higher layers should remain model-backed or user-confirmed; do not generate them with rules.
+The MVP implements L0 evidence events, L1 atoms, and a lightweight optional L2 scenario layer. L2 is not a background summarizer and not a new extraction source: it is a model/user-confirmed playbook assembled from active L1 memories, with `source_memory_refs` back to those L1 records and evidence refs back to L0. If a source L1 changes, is superseded, or is deleted, the L2 scenario becomes stale and the read path falls back to L1.
+
+L3 remains a boundary marker, not a core MVP feature. It should not become a broad user-profile system or silently drive all tasks.
 
 Traceability goal:
 
