@@ -10,6 +10,8 @@ from typing import Any, Dict, List, Optional
 from .context_builder import (
     ContextCriteria,
     available_scope_values,
+    build_context_explanation_markdown,
+    explain_context_request,
     respond_to_context_request,
 )
 from .deletion_verifier import verify_deleted_memory
@@ -321,6 +323,16 @@ def cmd_context_log(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_why_used(args: argparse.Namespace) -> int:
+    store = _store(args)
+    explanation = explain_context_request(store, request_id=args.request_id)
+    if args.format == "json":
+        print(json.dumps(explanation, ensure_ascii=False, indent=2))
+    else:
+        print(build_context_explanation_markdown(explanation))
+    return 0 if explanation.get("status") == "ok" else 1
+
+
 def cmd_delete(args: argparse.Namespace) -> int:
     store = _store(args)
     record = store.soft_delete(args.memory_id, actor="cli")
@@ -518,6 +530,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--limit", type=int, default=50)
     p.set_defaults(func=cmd_context_log)
+
+    p = sub.add_parser(
+        "why-used",
+        help="Explain the latest or selected build-context recall result",
+    )
+    p.add_argument("--request-id", type=int)
+    p.add_argument("--format", default="text", choices=["text", "json"])
+    p.set_defaults(func=cmd_why_used)
 
     return parser
 

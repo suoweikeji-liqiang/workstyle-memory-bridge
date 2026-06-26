@@ -102,6 +102,45 @@ def test_context_log_command_prints_requests(tmp_path, capsys):
     assert rows[0]["criteria"] == {"task_type": "bug-fix"}
 
 
+def test_why_used_command_explains_latest_request(tmp_path, capsys):
+    db = str(tmp_path / "cli.sqlite")
+    _seed(MemoryStore(db))
+    assert main(["--db", db, "build-context", "--task-type", "bug-fix"]) == 0
+    capsys.readouterr()
+
+    assert main(["--db", db, "why-used"]) == 0
+    output = capsys.readouterr().out
+
+    assert "Context Recall Explanation" in output
+    assert "criteria: task_type=bug-fix" in output
+    assert "bugfix-structure" in output
+    assert "exact scope match on task_type=bug-fix" in output
+    assert "rank signals" in output
+
+
+def test_why_used_json_format(tmp_path, capsys):
+    db = str(tmp_path / "cli.sqlite")
+    _seed(MemoryStore(db))
+    assert main(["--db", db, "build-context", "--task-type", "bug-fix"]) == 0
+    capsys.readouterr()
+
+    assert main(["--db", db, "why-used", "--format", "json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+
+    assert payload["status"] == "ok"
+    assert payload["request"]["criteria"] == {"task_type": "bug-fix"}
+    assert payload["returned"][0]["scope_reason"]
+
+
+def test_why_used_reports_when_no_request_exists(tmp_path, capsys):
+    db = str(tmp_path / "cli.sqlite")
+
+    assert main(["--db", db, "why-used"]) == 1
+    output = capsys.readouterr().out
+
+    assert "No build_context request has been logged yet" in output
+
+
 def test_reset_clears_context_requests(tmp_path):
     store = _store(tmp_path)
     _seed(store)

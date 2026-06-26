@@ -16,6 +16,8 @@ from typing import Any, Dict, Optional, Union
 from .context_builder import (
     ContextCriteria,
     available_scope_values,
+    build_context_explanation_markdown,
+    explain_context_request,
     respond_to_context_request,
 )
 from .deletion_verifier import verify_deleted_memory
@@ -302,6 +304,19 @@ def create_server():
             ),
             limit=limit,
             actor="mcp",
+        )
+
+    @mcp.tool()
+    def why_used(request_id: Optional[int] = None) -> str:
+        """Explain the latest or selected build_context recall result.
+
+        Shows which returned memories matched the request, the structured
+        ranking signals used for ordering, and scoped memory values still out
+        of reach for the same criteria.
+        """
+        store = _store()
+        return build_context_explanation_markdown(
+            explain_context_request(store, request_id=request_id)
         )
 
     @mcp.tool()

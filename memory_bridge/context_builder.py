@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from .schemas import MemoryRecord, Scope
 from .store import MemoryStore
@@ -64,6 +64,23 @@ def scope_matches(scope: Scope, criteria: ContextCriteria) -> bool:
 
 SCOPE_DIMENSIONS = ("project", "tool", "task_type", "session_id", "product", "domain", "user_id")
 
+LAYER_PRIORITY = {
+    "L2_scenario": 2,
+    "L1_atom": 1,
+    "L3_profile": 0,
+}
+
+TYPE_PRIORITY = {
+    "anti_preference": 5,
+    "project_rule": 4,
+    "temporary": 3,
+    "workflow": 3,
+    "preference": 2,
+    "fact": 1,
+}
+
+USAGE_BALANCE_CAP = 5
+
 
 def collect_scope_values(memories: Iterable[MemoryRecord]) -> Dict[str, List[str]]:
     """Distinct non-null scope values per dimension, exact as stored.
@@ -106,18 +123,43 @@ def unmatched_scope_summary(
     return len(unmatched), collect_scope_values(unmatched)
 
 
+def _usage_balance(memory: MemoryRecord) -> int:
+    """Lightly rotate otherwise equal memories without burying important ones."""
+    return -min(max(memory.usage_count, 0), USAGE_BALANCE_CAP)
+
+
+def memory_priority_parts(memory: MemoryRecord) -> Dict[str, Any]:
+    """Structured ranking signals used by the read path.
+
+    This deliberately uses only governed metadata. It does not inspect memory
+    content, slots, or keywords, keeping semantic extraction outside core code.
+    """
+    return {
+        "layer_priority": LAYER_PRIORITY.get(memory.layer, 0),
+        "scope_specificity": memory.scope.specificity(),
+        "type_priority": TYPE_PRIORITY.get(memory.type, 0),
+        "confidence": memory.confidence,
+        "usage_balance": _usage_balance(memory),
+        "valid_from": memory.valid_from,
+    }
+
+
+def memory_priority_key(memory: MemoryRecord) -> Tuple[Any, ...]:
+    parts = memory_priority_parts(memory)
+    return (
+        parts["layer_priority"],
+        parts["scope_specificity"],
+        parts["type_priority"],
+        parts["confidence"],
+        parts["usage_balance"],
+        parts["valid_from"],
+    )
+
+
 def _matching_sorted(store: MemoryStore, criteria: ContextCriteria) -> List[MemoryRecord]:
     active = store.list(status="active")
     matched = [memory for memory in active if scope_matches(memory.scope, criteria)]
-    matched.sort(
-        key=lambda m: (
-            1 if m.layer == "L2_scenario" else 0,
-            m.scope.specificity(),
-            m.confidence,
-            m.valid_from,
-        ),
-        reverse=True,
-    )
+    matched.sort(key=memory_priority_key, reverse=True)
     return matched
 
 
@@ -211,7 +253,7 @@ def build_context_markdown(
         lines.append("")
         lines.append(
             f"> {truncated_count} more memory(ies) also matched this scope but were not shown "
-            "(showing the most specific/recent first). Raise the limit or narrow the scope to see them."
+            "(showing JIT-ranked memories first). Raise the limit or narrow the scope to see them."
         )
     return "\n".join(lines)
 
@@ -260,3 +302,144 @@ def respond_to_context_request(
             lines.append(f"> - {dim}: {', '.join(found)}")
         text = text + "\n\n" + "\n".join(lines)
     return text
+
+
+def _criteria_from_dict(data: Dict[str, Any]) -> ContextCriteria:
+    return ContextCriteria(
+        **{key: data.get(key) for key in SCOPE_DIMENSIONS if data.get(key) is not None}
+    )
+
+
+def _describe_criteria(criteria: Dict[str, Any]) -> str:
+    if not criteria:
+        return "global / no scoped criteria"
+    return ", ".join(f"{key}={value}" for key, value in sorted(criteria.items()))
+
+
+def _scope_match_reason(scope: Scope, criteria: ContextCriteria) -> str:
+    if scope.level == "global":
+        return "global scope matches every build_context request"
+
+    criteria_data = criteria.to_dict()
+    matched = []
+    for dim in SCOPE_DIMENSIONS:
+        value = scope.to_dict().get(dim)
+        if value:
+            matched.append(f"{dim}={value}")
+
+    if matched:
+        return "exact scope match on " + ", ".join(matched)
+    if scope_matches(scope, criteria):
+        return f"scope level {scope.level} matched criteria {_describe_criteria(criteria_data)}"
+    return f"scope level {scope.level} does not currently match criteria {_describe_criteria(criteria_data)}"
+
+
+def explain_context_request(
+    store: MemoryStore, request_id: Optional[int] = None
+) -> Dict[str, Any]:
+    """Explain the latest or selected read-path request without changing usage stats."""
+    requests = store.context_requests(limit=1000 if request_id is not None else 1)
+    if not requests:
+        return {
+            "status": "no_context_requests",
+            "message": "No build_context request has been logged yet.",
+        }
+
+    request = requests[0]
+    if request_id is not None:
+        found = [row for row in requests if row.get("request_id") == request_id]
+        if not found:
+            return {
+                "status": "request_not_found",
+                "message": f"Context request not found: {request_id}",
+            }
+        request = found[0]
+
+    criteria = _criteria_from_dict(request.get("criteria") or {})
+    returned = []
+    missing_ids = []
+    for position, memory_id in enumerate(request.get("returned_ids") or [], start=1):
+        memory = store.get(memory_id)
+        if not memory:
+            missing_ids.append(memory_id)
+            continue
+        returned.append(
+            {
+                "rank": position,
+                "memory": memory.to_dict(),
+                "scope_reason": _scope_match_reason(memory.scope, criteria),
+                "priority": memory_priority_parts(memory),
+            }
+        )
+
+    current_unmatched_count, current_unmatched_values = unmatched_scope_summary(store, criteria)
+    return {
+        "status": "ok",
+        "request": request,
+        "criteria_description": _describe_criteria(request.get("criteria") or {}),
+        "returned": returned,
+        "missing_returned_ids": missing_ids,
+        "current_unmatched_count": current_unmatched_count,
+        "current_unmatched_scope_values": current_unmatched_values,
+    }
+
+
+def build_context_explanation_markdown(explanation: Dict[str, Any]) -> str:
+    status = explanation.get("status")
+    if status != "ok":
+        return str(explanation.get("message") or "No context explanation available.")
+
+    request = explanation["request"]
+    lines = [
+        "# Context Recall Explanation",
+        "",
+        f"- request_id: {request['request_id']}",
+        f"- timestamp: {request['timestamp']}",
+        f"- actor: {request['actor']}",
+        f"- criteria: {explanation['criteria_description']}",
+        f"- matched_count: {request['matched_count']}",
+        f"- returned_count: {len(explanation['returned'])}",
+        f"- logged_unmatched_count: {request['unmatched_count']}",
+        "",
+    ]
+
+    if not explanation["returned"]:
+        lines.append("No memories were returned for this request.")
+    else:
+        lines.append("Returned memories:")
+        for item in explanation["returned"]:
+            memory = item["memory"]
+            priority = item["priority"]
+            lines.append(f"{item['rank']}. {memory['id']} :: {memory['slot']}")
+            lines.append(
+                f"   - type/layer/scope: {memory['type']} / {memory['layer']} / {memory['scope_key']}"
+            )
+            lines.append(f"   - reason: {item['scope_reason']}")
+            lines.append(
+                "   - rank signals: "
+                f"layer={priority['layer_priority']}, "
+                f"scope={priority['scope_specificity']}, "
+                f"type={priority['type_priority']}, "
+                f"confidence={priority['confidence']:.2f}, "
+                f"usage_balance={priority['usage_balance']}, "
+                f"valid_from={priority['valid_from']}"
+            )
+            lines.append(f"   - content: {memory['content']}")
+
+    if explanation["missing_returned_ids"]:
+        lines.extend(["", "Returned IDs no longer present in the store:"])
+        for memory_id in explanation["missing_returned_ids"]:
+            lines.append(f"- {memory_id}")
+
+    unmatched_values = explanation["current_unmatched_scope_values"]
+    if unmatched_values:
+        lines.extend(
+            [
+                "",
+                "Currently unreachable scoped memory values for the same criteria:",
+            ]
+        )
+        for dim, found in sorted(unmatched_values.items()):
+            lines.append(f"- {dim}: {', '.join(found)}")
+
+    return "\n".join(lines)
