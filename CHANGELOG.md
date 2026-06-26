@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.3 - 2026-06-26
 
 Recall results are now easier to understand and less likely to hide action
 constraints behind softer preferences.

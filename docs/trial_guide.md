@@ -1,4 +1,4 @@
-# Workstyle Memory Bridge 试用指南（v0.6.2）
+# Workstyle Memory Bridge 试用指南（v0.6.3）
 
 **一句话**：让 AI 记住"你希望它怎么干活"，而且记忆**可查、可改、可删、删了能证明**——Claude Code、Codex 等工具共用同一份。
 
@@ -10,7 +10,7 @@
 
 ```bash
 # 用收到的 whl 文件安装（压缩包里就有，无需访问任何仓库）
-pip install workstyle_memory_bridge-0.6.2-py3-none-any.whl "mcp>=1.0.0"
+pip install workstyle_memory_bridge-0.6.3-py3-none-any.whl "mcp>=1.0.0"
 ```
 
 接入 Claude Code：在项目根目录建（或编辑）`.mcp.json`：

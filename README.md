@@ -1,6 +1,6 @@
 # Workstyle Memory Bridge
 
-**Version 0.6.2**
+**Version 0.6.3**
 
 > 一次反馈，多工具生效，可查看、可撤销、可进化、可溯源。  
 > One feedback, cross-tool effect, viewable, reversible, evolvable, and traceable.
