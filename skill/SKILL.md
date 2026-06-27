@@ -36,8 +36,10 @@ workstyle preference in both places.
 - `build_scenario`: assemble a lightweight L2 scenario playbook from matching active L1 memories. Call first without `scenario_json` to get source memories and a prompt; then generate JSON, preview with `dry_run=True`, show the user, and commit only after confirmation.
 - `scenario_status`: report whether L2 scenario playbooks are fresh or stale against their source L1 memories.
 - `edit_memory`: update a memory.
-- `memory_doctor`: lifecycle + recall health report (dead scoped memories, requested scope values that matched nothing). Facts only — the host AI judges semantics and proposes governed fixes for the user to confirm.
+- `preview_memory_edit`: preview a user-requested edit before writing. For natural-language requests, first inspect/view/build context, choose the candidate ID, then preview structured edit fields and show the user.
+- `memory_doctor`: lifecycle + hygiene + host integration + recall health report. Facts only — the host AI judges semantics and proposes governed fixes for the user to confirm.
 - `delete_memory`: delete a memory so it stops being used.
+- `preview_memory_delete`: preview a user-requested delete before writing. For natural-language requests, first inspect/view/build context, choose candidate IDs, then show evidence to the user.
 - `verify_deletion`: verify a deleted memory is absent from context and Claude/Codex projections.
 - `export_instructions`: write active memories into Claude/Codex instruction files.
 - `export_diagnostic`: CLI-only local diagnostic bundle for review and reproduction.
@@ -123,7 +125,8 @@ When a memory seems missing or the ordering feels surprising:
 
 1. Call `why_used` to explain the latest `build_context` result.
 2. Check whether scoped values were omitted or drifted from stored values.
-3. Use `memory_doctor` for aggregate recall-health facts across many requests.
+3. Use `memory_doctor` for aggregate recall-health, hygiene, and host integration facts.
+4. For edit/delete requests expressed in natural language, use preview tools first; commit with `edit_memory` / `delete_memory` only after the user confirms.
 
 ## Memory types
 

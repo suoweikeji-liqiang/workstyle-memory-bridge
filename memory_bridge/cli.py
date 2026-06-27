@@ -24,6 +24,7 @@ from .extractor import (
     extract_from_feedback,
     load_json_argument,
 )
+from .memory_control import format_control_preview, preview_delete, preview_edit
 from .resolver import PreviewResult, apply_drafts, preview_drafts
 from .scenario import (
     load_scenario_json,
@@ -343,6 +344,16 @@ def cmd_delete(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_preview_delete(args: argparse.Namespace) -> int:
+    store = _store(args)
+    preview = preview_delete(store, args.memory_ids, user_request=args.request)
+    if args.format == "json":
+        print(json.dumps(preview, ensure_ascii=False, indent=2))
+    else:
+        print(format_control_preview(preview))
+    return 0 if preview["candidates"] and not preview["missing_ids"] else 1
+
+
 def cmd_verify_deletion(args: argparse.Namespace) -> int:
     store = _store(args)
     report = verify_deleted_memory(store, args.memory_id, _criteria(args), limit=args.limit)
@@ -379,6 +390,39 @@ def cmd_edit(args: argparse.Namespace) -> int:
         return 2
     print(f"Updated: {record.id}")
     return 0
+
+
+def _edit_updates_from_args(args: argparse.Namespace) -> Dict[str, Any]:
+    updates: Dict[str, Any] = {
+        "content": args.content,
+        "rationale": args.rationale,
+        "slot": args.slot,
+        "type": args.type,
+        "layer": args.layer,
+        "confidence": args.confidence,
+        "status": args.status,
+    }
+    if args.scope_json is not None:
+        updates["scope"] = load_json_argument(args.scope_json)
+    return {key: value for key, value in updates.items() if value is not None}
+
+
+def cmd_preview_edit(args: argparse.Namespace) -> int:
+    store = _store(args)
+    updates = _edit_updates_from_args(args)
+    if not updates:
+        print("No edit fields provided.", file=sys.stderr)
+        return 2
+    try:
+        preview = preview_edit(store, args.memory_id, updates, user_request=args.request)
+    except (ValueError, ValidationError) as exc:
+        print(f"Invalid edit preview: {exc}", file=sys.stderr)
+        return 2
+    if args.format == "json":
+        print(json.dumps(preview, ensure_ascii=False, indent=2))
+    else:
+        print(format_control_preview(preview))
+    return 0 if preview.get("before") else 1
 
 
 def cmd_export(args: argparse.Namespace) -> int:
@@ -485,6 +529,15 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("memory_id")
     p.set_defaults(func=cmd_delete)
 
+    p = sub.add_parser(
+        "preview-delete",
+        help="Preview a user-requested delete by explicit candidate ID(s); writes nothing",
+    )
+    p.add_argument("memory_ids", nargs="+")
+    p.add_argument("--request", help="Original natural-language user request for audit/display")
+    p.add_argument("--format", default="text", choices=["text", "json"])
+    p.set_defaults(func=cmd_preview_delete)
+
     p = sub.add_parser("verify-deletion")
     p.add_argument("memory_id")
     add_scope_args(p)
@@ -502,6 +555,23 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--status", choices=["active", "superseded", "archived", "deleted"])
     p.add_argument("--scope-json", help="Scope JSON string, or @path")
     p.set_defaults(func=cmd_edit)
+
+    p = sub.add_parser(
+        "preview-edit",
+        help="Preview a user-requested edit by explicit candidate ID; writes nothing",
+    )
+    p.add_argument("memory_id")
+    p.add_argument("--request", help="Original natural-language user request for audit/display")
+    p.add_argument("--content")
+    p.add_argument("--rationale")
+    p.add_argument("--slot")
+    p.add_argument("--type")
+    p.add_argument("--layer")
+    p.add_argument("--confidence", type=float)
+    p.add_argument("--status", choices=["active", "superseded", "archived", "deleted"])
+    p.add_argument("--scope-json", help="Scope JSON string, or @path")
+    p.add_argument("--format", default="text", choices=["text", "json"])
+    p.set_defaults(func=cmd_preview_edit)
 
     p = sub.add_parser("export")
     p.add_argument("target", choices=["claude", "codex"])

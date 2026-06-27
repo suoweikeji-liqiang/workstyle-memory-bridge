@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.6.4 - 2026-06-27
+
+Memory governance is easier to keep healthy in real host usage.
+
+- Expanded `doctor` into lifecycle + hygiene + host integration checks. It now
+  reports expired active memories, low-confidence or over-broad records, stale
+  L2 scenarios, unverified host recall, empty-scope calls, and stores where MCP
+  recall has not actually been observed.
+- Added safe control previews: CLI `preview-edit` / `preview-delete` and MCP
+  `preview_memory_edit` / `preview_memory_delete`. These tools show candidates,
+  evidence, and before/after changes without writing; commit still requires
+  `edit` / `delete_memory` after user confirmation.
+- Simplified README, setup, and trial docs so the default path is clear:
+  connect an MCP host, let it call `build_context`, and use CLI as the
+  inspection bench.
+
 ## 0.6.3 - 2026-06-26
 
 Recall results are now easier to understand and less likely to hide action

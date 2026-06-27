@@ -24,6 +24,7 @@ from .deletion_verifier import verify_deleted_memory
 from .doctor import run_doctor
 from .exporters import export_instruction_file, server_instructions
 from .extractor import ExtractorUnavailable, existing_memory_digest, extract_from_feedback
+from .memory_control import preview_delete, preview_edit
 from .resolver import apply_drafts, preview_drafts
 from .scenario import (
     prepare_scenario_drafts,
@@ -87,6 +88,18 @@ def _task_context(
 
 def _non_empty(data: dict) -> dict:
     return {key: value for key, value in data.items() if value is not None}
+
+
+def _memory_ids_from_payload(value: Union[str, list[str]]) -> list[str]:
+    if isinstance(value, str):
+        try:
+            loaded = json.loads(value)
+        except json.JSONDecodeError:
+            return [value]
+        if isinstance(loaded, list):
+            return [str(item) for item in loaded]
+        return [str(loaded)]
+    return [str(item) for item in value]
 
 
 def create_server():
@@ -483,10 +496,70 @@ def create_server():
         return json.dumps(record.to_dict(), ensure_ascii=False, indent=2)
 
     @mcp.tool()
+    def preview_memory_edit(
+        memory_id: str,
+        user_request: Optional[str] = None,
+        content: Optional[str] = None,
+        rationale: Optional[str] = None,
+        slot: Optional[str] = None,
+        memory_type: Optional[str] = None,
+        layer: Optional[str] = None,
+        confidence: Optional[float] = None,
+        status: Optional[str] = None,
+        scope_json: Optional[str] = None,
+    ) -> str:
+        """Preview a user-requested memory edit before writing.
+
+        For natural-language requests, YOU are the matcher: first call
+        view_memory / inspect_memory / build_context, choose the candidate ID,
+        then call this preview tool with structured edit fields. Show the
+        preview to the user and commit with edit_memory only after confirmation.
+        This tool never interprets natural-language text or writes to the store.
+        """
+        updates: Dict[str, Any] = {
+            "content": content,
+            "rationale": rationale,
+            "slot": slot,
+            "memory_type": memory_type,
+            "layer": layer,
+            "confidence": confidence,
+            "status": status,
+        }
+        if scope_json is not None:
+            updates["scope_json"] = json.loads(scope_json)
+        preview = preview_edit(
+            _store(),
+            memory_id,
+            {key: value for key, value in updates.items() if value is not None},
+            user_request=user_request,
+        )
+        return json.dumps(preview, ensure_ascii=False, indent=2)
+
+    @mcp.tool()
     def delete_memory(memory_id: str) -> str:
         """Delete a memory so it stops being selected or exported."""
         record = _store().soft_delete(memory_id, actor="mcp")
         return f"Deleted: {memory_id}" if record else f"Memory not found: {memory_id}"
+
+    @mcp.tool()
+    def preview_memory_delete(
+        memory_ids_json: Union[str, list[str]],
+        user_request: Optional[str] = None,
+    ) -> str:
+        """Preview a user-requested memory delete before writing.
+
+        For natural-language requests, YOU are the matcher: first call
+        view_memory / inspect_memory / build_context, choose candidate IDs,
+        then call this tool. Show candidates and evidence to the user; commit
+        with delete_memory only after confirmation. This tool never interprets
+        natural-language text or writes to the store.
+        """
+        preview = preview_delete(
+            _store(),
+            _memory_ids_from_payload(memory_ids_json),
+            user_request=user_request,
+        )
+        return json.dumps(preview, ensure_ascii=False, indent=2)
 
     @mcp.tool()
     def verify_deletion(

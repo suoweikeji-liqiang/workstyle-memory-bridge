@@ -1,19 +1,16 @@
-# Workstyle Memory Bridge 试用指南（v0.6.3）
+# Workstyle Memory Bridge 试用指南（v0.6.4）
 
-**一句话**：让 AI 记住"你希望它怎么干活"，而且记忆**可查、可改、可删、删了能证明**——Claude Code、Codex 等工具共用同一份。
+一句话：让 AI 记住“你希望它怎么干活”，并且记忆可查、可改、可删、可证明删除。
 
-它只管一类东西：你的**工作方式偏好**（比如"写方案先给结论再展开"、"修 bug 按现象→原因→修法的顺序汇报"）。它不是聊天记录存档，不是知识库，不会偷偷记你没让它记的事。
+它只管工作方式偏好：输出结构、代码审查顺序、修 bug 汇报方式、项目协作规则等。它不是聊天记录存档，也不是个人知识库。
 
-## 安装（约 2 分钟）
-
-前提：Python 3.11+，以及 Claude Code（或任意 MCP 客户端）。
+## 安装
 
 ```bash
-# 用收到的 whl 文件安装（压缩包里就有，无需访问任何仓库）
-pip install workstyle_memory_bridge-0.6.3-py3-none-any.whl "mcp>=1.0.0"
+pip install workstyle_memory_bridge-0.6.4-py3-none-any.whl "mcp>=1.0.0"
 ```
 
-接入 Claude Code：在项目根目录建（或编辑）`.mcp.json`：
+接入 Claude Code 或其他 MCP 客户端：
 
 ```json
 {
@@ -26,41 +23,36 @@ pip install workstyle_memory_bridge-0.6.3-py3-none-any.whl "mcp>=1.0.0"
 }
 ```
 
-新开一个 Claude Code 会话即生效——AI 在会话开始时就会自动"自带"你的记忆和使用规则（MCP 握手注入，**不需要改你的 CLAUDE.md**）。
+新会话开始时，MCP 握手会带上全局记忆、scope 词汇表和使用规则；不需要手改 `CLAUDE.md`。
 
-## 5 分钟体验路线
+## 5 分钟体验
 
-1. **存一条**：对 AI 说——"记住：以后给我写方案，先给结论再展开。" AI 会提议要存的内容，你确认。
-2. **看一眼**：终端跑 `memory-bridge view`——能看到这条记忆的类型、适用范围、置信度，以及你的**原话证据**。
-3. **验效果**：新开会话，让它随便写个方案——看它是否不用提醒就先给结论。
-4. **改主意**：再说——"调整一下，只有写周报时才需要那么简洁。" 旧记忆会被**替换**而不是叠加（`view --status superseded` 能看到旧版留档）。
-5. **删干净**：`memory-bridge delete <id>`，然后 `memory-bridge verify-deletion <id>`——六项检查逐项证明它真的不再生效。
-6. **这次为什么这样生效？**：`memory-bridge why-used`——解释最新一次召回用了哪些记忆、scope 怎么命中、排序信号是什么。
-7. **经常没生效？**：`memory-bridge doctor`——它会告诉你长期召回健康问题（比如记忆的适用范围和实际任务对不上），而不用你猜。
+1. 对 AI 说：“记住：以后写方案先给结论再展开。”
+2. AI 应先预览要保存的记忆；你确认后再写入。
+3. 运行 `memory-bridge view` 和 `memory-bridge inspect <id>` 查看内容和证据。
+4. 新任务开始时，AI 调 `build_context` 并按记忆调整输出。
+5. 改主意时，用同一 `slot + scope` supersede 旧记忆，而不是叠加冲突。
+6. 删除前可先 `preview-delete <id>`，确认后 `delete <id>`。
+7. 用 `verify-deletion <id>` 证明它不再进入上下文或导出投影。
 
-## 常用命令速查
-
-```bash
-memory-bridge view              # 现在记了什么
-memory-bridge inspect <id>      # 单条记忆：内容 + 证据 + 生命周期
-memory-bridge context-log       # 每次记忆被取用的审计记录
-memory-bridge why-used          # 最新一次召回为什么用了这些记忆
-memory-bridge doctor            # 健康检查：死记忆、叫错名的调用
-memory-bridge reset             # 全部清空，从零开始
-```
-
-## 数据与隐私
-
-所有数据只存在你本机的一个 SQLite 文件里（`~/.memory_bridge/memory_bridge.sqlite`），**没有任何网络上传**。想完全隔离试用，设环境变量 `MEMORY_BRIDGE_DB` 指向任意新路径即可。
-
-## 反馈
-
-用着别扭、记忆没生效、存了不该存的——都想听。最好附上：
+## 常用命令
 
 ```bash
+memory-bridge view [--status all]
+memory-bridge inspect <id>
+memory-bridge why-used
+memory-bridge doctor
+memory-bridge preview-edit <id> --content "..."
+memory-bridge preview-delete <id>
+memory-bridge verify-deletion <id> --task-type <value>
 memory-bridge export-diagnostic --output diagnostic.zip
 ```
 
-（导出前可自行检查，包里可能含你的反馈原文。）发给我即可。
+## 隔离试用
 
-> 仓库目前未公开，源码和最新版本开源后另行提供；现阶段一切以收到的 whl 包为准。
+```bash
+export MEMORY_BRIDGE_DB=/tmp/workstyle-memory-test.sqlite
+memory-bridge reset
+```
+
+所有数据默认在本机 SQLite 文件中。诊断包可能包含反馈原文，分享前请先检查。
